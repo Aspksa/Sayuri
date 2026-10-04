@@ -188,7 +188,7 @@ def run():
                         assert initiative_reactions and initiative_reactions[-1]["reaction"]=="accepted",(width,initiative_reactions)
                         page.unroute("**/api/initiative/next*",initiative_next_route)
                         page.unroute("**/api/initiative/smoke-initiative/reaction",initiative_reaction_route)
-                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))
+                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))")
                         page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="thinking",width
                         page.wait_for_function("() => document.querySelector('#foxMotionState')?.textContent === 'Размышляет'")
