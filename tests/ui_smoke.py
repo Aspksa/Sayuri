@@ -48,7 +48,7 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.7.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.7.1",width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -179,7 +179,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.0')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.1')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
@@ -188,6 +188,30 @@ def run():
                         page.locator("#updatesBackCabinet").click()
                         assert page.locator("#accountView").is_visible(),width
                         assert page.locator("#showUpdates").count()==1,width
+                        page.evaluate("document.getElementById('showFiles').click()")
+                        page.wait_for_timeout(120)
+                        assert page.locator("#filesView").is_visible(),width
+                        assert page.locator("#documentsWorkspace").is_visible(),width
+                        assert page.locator("#driveSearch").is_visible(),width
+                        assert page.locator("#docsOpenWork").is_visible(),width
+                        assert page.locator("#docsOpenHome").is_visible(),width
+                        assert page.locator("#documentsLibrary").is_visible(),width
+                        page.locator("#docsListView").click()
+                        assert page.locator("#docsListView").get_attribute("aria-pressed")=="true",width
+                        assert "drive-list-mode" in (page.locator("#driveFiles").get_attribute("class") or ""),width
+                        page.locator("#docsGridView").click()
+                        assert page.locator("#docsGridView").get_attribute("aria-pressed")=="true",width
+                        browser_box=page.locator(".documents-browser").bounding_box()
+                        aside_box=page.locator(".documents-aside").bounding_box()
+                        assert browser_box and aside_box,(width,browser_box,aside_box)
+                        if width<=1100:
+                            assert aside_box["y"]>=browser_box["y"]+browser_box["height"]-2,(width,browser_box,aside_box)
+                        else:
+                            assert aside_box["x"]>=browser_box["x"]+browser_box["width"]-2,(width,browser_box,aside_box)
+                        if width in (390,1440):
+                            page.locator("#filesView").screenshot(path=str(ROOT/"ui-previews"/("documents-"+str(width)+".png")))
+                        page.evaluate("document.getElementById('showAccount').click()")
+                        assert page.locator("#accountView").is_visible(),width
                         if width<=767:
                             assert not page.locator("#sayuriSidebar").is_visible() or (
                                 page.locator("#sayuriSidebar").bounding_box()["x"]<0),width
