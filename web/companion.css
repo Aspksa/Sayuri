@@ -105,3 +105,21 @@ body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
  #foxJumpInstall{width:100%}
  .ui-build{display:block;width:fit-content;margin:5px 0 0}
 }
+
+/* Polished Russian installation controls: never rely on native English file picker text. */
+.settings .fox-pack-label{display:grid;gap:9px}
+.fox-file-input-hidden{position:absolute!important;width:1px!important;height:1px!important;
+ opacity:0!important;pointer-events:none!important;overflow:hidden!important}
+.fox-pick-pack{display:flex;align-items:center;justify-content:center;gap:9px;
+ max-width:340px;min-height:49px;width:100%;padding:13px 18px!important;
+ border:1px solid #ffcee9!important;border-radius:12px!important;
+ background:#f1acd2!important;color:#271d2b!important;font-weight:750!important;
+ box-shadow:0 4px 14px #f1acd228}
+.fox-pick-pack:hover{background:#ffd2ea!important;color:#241826!important}
+#foxPackName{font-size:12px;color:#dfcbdf;overflow-wrap:anywhere}
+.fox-entry-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+#foxResetPosition{min-height:44px;background:#41364d;color:#e3d5e6;border:1px solid #795e7f}
+#foxResetPosition:hover{background:#55435e}
+@media(max-width:767px){.fox-entry-actions{width:100%;display:grid;grid-template-columns:1fr}
+ #foxResetPosition,#foxJumpInstall{width:100%;max-width:none}
+ .fox-pick-pack{max-width:none}}
