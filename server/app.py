@@ -589,11 +589,16 @@ def knowledge_sources(project_id: str | None=None,authorization: str | None=Head
 def feedback(body: FeedbackIn, authorization: str | None = Header(None)):
     u=auth(authorization);now=stamp()
     with db() as c:
-        ok=c.execute("SELECT 1 FROM messages m JOIN chats ch ON ch.id=m.chat_id WHERE m.id=? AND ch.user_id=? AND m.role='assistant'",(body.message_id,u)).fetchone()
-        if not ok: raise HTTPException(404,"Ответ не найден")
+        row=c.execute("""SELECT ch.kind FROM messages m JOIN chats ch ON ch.id=m.chat_id
+                         WHERE m.id=? AND ch.user_id=? AND m.role='assistant'""",
+                      (body.message_id,u)).fetchone()
+        if not row: raise HTTPException(404,"Ответ не найден")
         c.execute("INSERT INTO feedback VALUES (?,?,?,?,?,?)",(uuid.uuid4().hex,u,body.message_id,body.rating,body.correction,now))
-        signals=personality_record_feedback(
-            c,user_id=u,correction=body.correction,source_ref="message:"+body.message_id,now=now)
+        signals=[]
+        if row["kind"]=="sayuri":
+            signals=personality_record_feedback(
+                c,user_id=u,correction=body.correction,
+                source_ref="message:"+body.message_id,now=now)
     return {"ok":True,"personality_signals":[trait for trait,_ in signals]}
 @app.get("/api/learning/stats")
 def stats(authorization: str | None = Header(None)):
