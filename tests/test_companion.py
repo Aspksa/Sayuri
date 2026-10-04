@@ -45,7 +45,7 @@ def test_companion_settings_and_uploaded_images(tmp_path,monkeypatch):
         h=get_headers(c)
         default=c.get("/api/companion/settings",headers=h).json()
         assert default["settings"]["mode"] in ("compact","floating","expanded")
-        payload={"mode":"floating","quiet":True,"enabled":True,"scale":1.25,"x":0.2,"y":0.7,"behavior":"wander"}
+        payload={"mode":"floating","quiet":True,"enabled":True,"scale":1.25,"x":0.2,"y":0.7,"behavior":"wander","presence":"lively","voice_important":False}
         saved=c.put("/api/companion/settings",headers=h,json=payload)
         assert saved.status_code==200,saved.text
         assert c.get("/api/companion/settings",headers=h).json()["settings"]==payload
@@ -53,6 +53,8 @@ def test_companion_settings_and_uploaded_images(tmp_path,monkeypatch):
           json={**payload,"scale":3}).status_code==422
         assert c.put("/api/companion/settings",headers=h,
           json={**payload,"behavior":"outside"}).status_code==422
+        assert c.put("/api/companion/settings",headers=h,
+          json={**payload,"presence":"noisy"}).status_code==422
         data=png()
         uploaded=c.post("/api/companion/image/full",headers=h,
                         files={"image":("full.png",data,"image/png")})
