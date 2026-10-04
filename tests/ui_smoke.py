@@ -48,7 +48,7 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.7.3",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.7.4",width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -179,7 +179,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.3')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.4')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
@@ -212,10 +212,33 @@ def run():
                         assert folder_name in page.locator("#documentsActionStatus").inner_text(),width
                         folder_card=page.locator("#driveFiles .drive-file").filter(has_text=folder_name).first
                         assert folder_card.get_attribute("data-kind")=="folder",(width,folder_name)
+
+                        # Folder Identity: icon, accent and description persist in the local profile.
+                        folder_card.locator("button[aria-label^='Действия:']").click()
+                        page.locator("[data-doc-action='customize']").click()
+                        assert page.locator("#folderIdentityDialog").is_visible(),width
+                        page.locator("[data-folder-icon='research']").click()
+                        page.locator("[data-folder-color='cyan']").click()
+                        description="Материалы UI "+str(width)
+                        page.locator("#folderIdentityDescription").fill(description)
+                        page.locator("#folderIdentitySubmit").click()
+                        page.wait_for_function("""name => {
+                          const card=Array.from(document.querySelectorAll('#driveFiles .drive-file'))
+                            .find(node=>node.querySelector('.drive-file-name')?.textContent===name);
+                          return card?.dataset.folderColor==='cyan' &&
+                            card.querySelector('.drive-file-icon')?.textContent.includes('🔬');
+                        }""",arg=folder_name)
+                        folder_card=page.locator("#driveFiles .drive-file").filter(has_text=folder_name).first
+                        assert description in folder_card.inner_text(),width
+
                         folder_card.locator("button").filter(has_text="Открыть").click()
                         page.wait_for_function("name => document.querySelector('#documentsCurrentFolder').textContent === name",arg=folder_name)
                         assert not page.locator("#documentsParentFolder").is_disabled(),width
                         assert folder_name in page.locator("#documentsCurrentPath").inner_text(),width
+                        assert page.locator("#documentsCurrentFolderCard").get_attribute("data-folder-color")=="cyan",width
+                        assert "🔬" in page.locator("#documentsCurrentFolderIcon").inner_text(),width
+                        assert page.locator("#documentsCurrentDescription").inner_text()==description,width
+                        assert page.locator("#documentsFolderCount").inner_text()=="0",width
                         page.locator("#documentsParentFolder").click()
                         page.wait_for_function("() => document.querySelector('#documentsCurrentFolder').textContent === 'Мои файлы'")
                         # Context actions: pin, rename, move and cleanup.
