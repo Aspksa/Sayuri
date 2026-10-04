@@ -12,3 +12,6 @@ mobile/.flutter-plugins*
 mobile/.packages
 mobile/.metadata
 mobile/.idea/
+
+# Browser test screenshots (CI artifact only)
+ui-previews/
