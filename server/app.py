@@ -769,7 +769,9 @@ def drive_list(path: str="",authorization: str | None=Header(None)):
 @app.get("/api/drive/search")
 def drive_search(q: str="",authorization: str | None=Header(None)):
     auth(authorization)
-    return {"items":search_files(managed_root(),q)}
+    with runtime.operation("researching","Поиск по локальным документам"):
+        result=search_files(managed_root(),q)
+    return {"items":result}
 
 @app.post("/api/drive/folder")
 def drive_folder(body:DriveFolder,authorization: str | None=Header(None)):
