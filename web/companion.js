@@ -13,7 +13,7 @@
     "memory_updated", "contradiction_detected", "project_opened", "notification_shown"
   ]);
   const modules = {account:"Личный кабинет",beyond:"SAYURI BEYOND",chat:"Единый чат",
-    files:"Документы / Облако / Sayuri",work:"Рабочие проекты",
+    files:"Документы",work:"Рабочие проекты",
     home:"Домашние проекты",updates:"Обновление проекта"};
   let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null,behavior:"stationary",presence:"normal",voice_important:true};
   let moduleName = "account", selected = null, recentEvent = null, liveStatus = null;
