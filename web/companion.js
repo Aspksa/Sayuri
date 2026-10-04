@@ -240,7 +240,8 @@
     if(!settings.enabled||drag||!menu.hidden)return false;
     const currentX=parseFloat(shell.style.left)||0;
     const p=clampPosition(x,y);
-    picture.style.setProperty("--fox-facing",p.x<currentX?"-1":"1");
+    const facing=p.x<currentX?"-1":"1";
+    for(const layer of [picture,frameA,frameB])layer?.style.setProperty("--fox-facing",facing);
     setMotionState("walking");
     shell.classList.add("fox-autonomous-move");
     shell.style.right="auto";shell.style.bottom="auto";
