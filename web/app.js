@@ -134,7 +134,9 @@ async function bootstrapLocal() {
     token=authResponse.token;
     sessionStorage.setItem('sayuri_token',token);
     await refresh();
-    view('account');
+    // Preserve a section selected while the initial local session was loading.
+    const visible=document.querySelector('.view.active');
+    view(visible?.id?.endsWith('View')?visible.id.slice(0,-4):'account');
   } catch(e) {
     $('#cloud').textContent='Локальный доступ недоступен';
     fail(e);
