@@ -91,7 +91,7 @@ def local_session(request: Request):
         remote not in ("127.0.0.1","::1") or
         hostname not in ("127.0.0.1","localhost") or
         host_header not in ("127.0.0.1","localhost") or
-        (origin and origin.rstrip("/") not in ("http://127.0.0.1:8765","http://localhost:8765")) or
+        (origin and origin.rstrip("/") != str(request.base_url).rstrip("/")) or
         fetch_site=="cross-site"):
         raise HTTPException(403,"Локальный вход доступен только с этого компьютера")
     with db() as c:
