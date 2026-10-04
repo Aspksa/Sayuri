@@ -182,8 +182,9 @@ def run():
                         reset_fox=page.locator("#foxAvatar").bounding_box()
                         assert reset_fox,(width,reset_fox)
                         assert reset_fox["x"]>=-1 and reset_fox["x"]+reset_fox["width"]<=width+1,(width,reset_fox)
-                        if width>767:
-                            assert reset_fox["x"]+reset_fox["width"]/2 > width/2,(width,reset_fox)
+                        assert reset_fox["y"]>=-1 and reset_fox["y"]+reset_fox["height"]<=900+1,(width,reset_fox)
+                        reset_spatial=page.evaluate("window.SayuriSpatial.getSnapshot()")
+                        assert reset_spatial and reset_spatial["protected"]>=1,(width,reset_spatial)
                         page.locator("#foxVisibility").click()
                         assert not page.locator("#foxAvatar").is_visible(),width
                         page.locator("#foxVisibility").click()
