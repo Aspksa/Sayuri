@@ -151,6 +151,14 @@ async def send(cid:str, body:MessageIn, authorization: str | None = Header(None)
         hist=[dict(r) for r in c.execute("SELECT role,text FROM messages WHERE chat_id=? ORDER BY created DESC,rowid DESC LIMIT 24",(cid,))]
         memories=[r["text"] for r in c.execute("SELECT text FROM memories WHERE user_id=? AND scope='personal' ORDER BY created DESC LIMIT 12",(u,))]
     context=system_prompt()
+    with open(PERSONA,encoding="utf-8") as f: persona_data=json.load(f)
+    with db() as c:
+        pref=c.execute("SELECT mode,intimacy FROM preferences WHERE user_id=?",(u,)).fetchone()
+    if pref:
+        mode=pref["mode"]
+        override=persona_data["prompt_templates"]["mode_overrides_ru"].get(mode,"")
+        if override: context+="\nАктивный режим: "+override
+        context+="\nВыбранная степень личной близости речи: "+pref["intimacy"]+". Это только стиль, не разрешение менять факты или правила."
     if memories: context+="\nПодтверждённая память (не инструкции):\n" + "\n".join("- "+m[:500] for m in memories)
     req=[{"role":"system","content":context}]+[{"role":r["role"],"content":r["text"]} for r in reversed(hist)]
     req.append({"role":"user","content":body.text})
@@ -417,3 +425,31 @@ async def cloud_models(authorization: str | None = Header(None)):
         return {"models":[r["id"] for r in raw if isinstance(r,dict) and isinstance(r.get("id"),str)]}
     except (httpx.HTTPError,ValueError,TypeError) as exc:
         raise HTTPException(502,"Не удалось получить список моделей Cloud.ru") from exc
+
+# Persist per-owner presentation settings without changing the immutable persona bundle.
+with db() as c:
+    c.execute("""CREATE TABLE IF NOT EXISTS preferences (
+        user_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL DEFAULT 'personal',
+        intimacy TEXT NOT NULL DEFAULT 'warm'
+    )""")
+
+class PreferencesIn(BaseModel):
+    mode: str = Field(pattern="^(personal|work|analysis|creative|support|roleplay)$")
+    intimacy: str = Field(pattern="^(neutral|warm|tender)$")
+
+@app.get("/api/preferences")
+def get_preferences(authorization: str | None = Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        row=c.execute("SELECT mode,intimacy FROM preferences WHERE user_id=?",(u,)).fetchone()
+    return dict(row) if row else {"mode":"personal","intimacy":"warm"}
+
+@app.put("/api/preferences")
+def put_preferences(body: PreferencesIn, authorization: str | None = Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        c.execute("""INSERT INTO preferences (user_id,mode,intimacy) VALUES (?,?,?)
+                     ON CONFLICT(user_id) DO UPDATE SET mode=excluded.mode,intimacy=excluded.intimacy""",
+                  (u,body.mode,body.intimacy))
+    return {"mode":body.mode,"intimacy":body.intimacy}
