@@ -1,4 +1,4 @@
-/* BEYOND 2.2 — persistent assistant with owner-controlled autonomous screen behavior. */
+/* BEYOND 2.3 — contextual character motion layered on real runtime state. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
@@ -18,7 +18,8 @@
   let moduleName = "account", selected = null, recentEvent = null, liveStatus = null;
   let lastObjectUrl = null, portraitObjectUrl=null, initialized = false, savePending = false, queuedSave=false;
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
-  let behaviorTimer=null,returnTimer=null,autoMoveTimer=null,waypointIndex=0,lastManualMoveAt=0;
+  let behaviorTimer=null,returnTimer=null,autoMoveTimer=null,motionTimer=null,waypointIndex=0,lastManualMoveAt=0;
+  let runtimeState="ready",motionState="idle";
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
   const bound = (v,a,b) => Math.min(b,Math.max(a,v));
@@ -48,9 +49,35 @@
       approachEvent(detail.type);
   }
   window.addEventListener("sayuri:context",e=>dispatch(e.detail));
+  const motionNames={
+    idle:"Ожидает",walking:"Идёт",thinking:"Размышляет",reading:"Изучает",
+    working:"Работает",happy:"Радуется",attention:"Требует внимания"
+  };
+  function motionFromRuntime(state){
+    if(["reasoning","verifying","linking"].includes(state))return "thinking";
+    if(["researching","studying","memorizing"].includes(state))return "reading";
+    if(state==="executing")return "working";
+    if(state==="completed")return "happy";
+    if(["attention","disconnected"].includes(state))return "attention";
+    return "idle";
+  }
+  function setMotionState(state,{temporary=0}={}){
+    motionState=state;
+    shell.dataset.motionState=state;
+    const label=el("foxMotionState");
+    if(label)label.textContent=motionNames[state]||motionNames.idle;
+    if(motionTimer)clearTimeout(motionTimer);
+    motionTimer=null;
+    if(temporary>0)motionTimer=setTimeout(()=>setMotionState(motionFromRuntime(runtimeState)),temporary);
+  }
+  function setRuntimeState(state){
+    runtimeState=state||"ready";
+    el("foxStatus").dataset.state=runtimeState;
+    if(motionState!=="walking")setMotionState(motionFromRuntime(runtimeState));
+  }
   window.addEventListener("sayuri:runtime",e=>{
     const state=e.detail?.state;
-    if(typeof state==="string")el("foxStatus").dataset.state=state;
+    if(typeof state==="string")setRuntimeState(state);
   });
   window.SayuriContext = Object.freeze({getCurrent:()=>({module:moduleName,selected,
     latestEvent:recentEvent})});
@@ -102,12 +129,18 @@
   }
   function autonomousMove(x,y) {
     if(!settings.enabled||drag||!menu.hidden)return false;
+    const currentX=parseFloat(shell.style.left)||0;
     const p=clampPosition(x,y);
+    picture.style.setProperty("--fox-facing",p.x<currentX?"-1":"1");
+    setMotionState("walking");
     shell.classList.add("fox-autonomous-move");
     shell.style.right="auto";shell.style.bottom="auto";
     shell.style.left=p.x+"px";shell.style.top=p.y+"px";
     clearTimeout(autoMoveTimer);
-    autoMoveTimer=setTimeout(()=>shell.classList.remove("fox-autonomous-move"),900);
+    autoMoveTimer=setTimeout(()=>{
+      shell.classList.remove("fox-autonomous-move");
+      setMotionState(motionFromRuntime(runtimeState));
+    },900);
     return true;
   }
   function followActiveView() {
@@ -154,6 +187,8 @@
       memory_updated:"Память обновлена.",
       contradiction_detected:"Обнаружено противоречие — нужна проверка."
     };
+    if(type==="task_finished"||type==="memory_updated")setMotionState("happy",{temporary:2600});
+    if(type==="task_failed"||type==="contradiction_detected")setMotionState("attention",{temporary:3600});
     message(labels[type]||"Появилось важное событие.");
     clearTimeout(returnTimer);
     returnTimer=setTimeout(()=>{if(settings.behavior==="event")position();},4500);
@@ -238,6 +273,7 @@
       }
     }catch{}
     position();
+    setMotionState("idle");
     scheduleBehavior();
     await updateImage();
     // Quiet state explicitly controls scripted greetings, not real warning events.
@@ -271,7 +307,7 @@
       const response=await fetch("/api/runtime/status",{headers:authHeaders(),cache:"no-store"});
       if(!response.ok)throw Error("HTTP "+response.status);
       liveStatus=await response.json();
-      el("foxStatus").dataset.state=liveStatus.sayuri?.state||"unknown";
+      setRuntimeState(liveStatus.sayuri?.state||"ready");
       const state=liveStatus.sayuri||{};
       message("Состояние: "+(names[state.state]||"Нет данных")+
         ". Активных операций: "+(state.active_jobs??"нет данных")+
@@ -374,6 +410,9 @@
   avatar.addEventListener("pointerdown",e=>{
     if(e.button!==0)return;
     closeMenu();
+    if(autoMoveTimer)clearTimeout(autoMoveTimer);
+    shell.classList.remove("fox-autonomous-move");
+    setMotionState(motionFromRuntime(runtimeState));
     drag={id:e.pointerId,x:e.clientX,y:e.clientY,
       left:parseFloat(shell.style.left)||0,top:parseFloat(shell.style.top)||0,moved:false};
     avatar.setPointerCapture(e.pointerId);
@@ -490,6 +529,7 @@
   window.addEventListener("pagehide",()=>{
     clearBehaviorTimers();
     if(autoMoveTimer)clearTimeout(autoMoveTimer);
+    if(motionTimer)clearTimeout(motionTimer);
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
   });
