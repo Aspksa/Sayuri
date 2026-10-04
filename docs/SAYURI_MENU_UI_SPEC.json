@@ -1,0 +1,449 @@
+{
+  "schema_version": "1.0.0",
+  "spec_id": "sayuri-sidebar-ui",
+  "language": "ru-RU",
+  "title": "Sayuri Kitsune — боковая навигация, личный кабинет и диагностика",
+  "objective": "Реализовать production-ready интерфейс, а не статичную картинку. Статусы только по фактической телеметрии backend.",
+  "layout": {
+    "desktop": {
+      "viewport_min_px": 1024,
+      "sidebar_width_px": 280,
+      "sidebar_collapsed_width_px": 72,
+      "sidebar_height": "100dvh",
+      "sidebar_position": "sticky/fixed left",
+      "content": "flex:1; min-width:0",
+      "right_panel": "optional"
+    },
+    "tablet": {
+      "viewport_min_px": 768,
+      "viewport_max_px": 1023,
+      "sidebar_width_px": 260,
+      "behavior": "сворачиваемая панель шириной 72 px или drawer по выбору пользователя"
+    },
+    "mobile": {
+      "viewport_max_px": 767,
+      "sidebar_width": "min(88vw, 320px)",
+      "behavior": "overlay drawer",
+      "backdrop": "rgba(0,0,0,0.55)",
+      "close_on": "Esc, клик по затемнению, переход по разделу",
+      "top_safe_area": "env(safe-area-inset-top)",
+      "bottom_safe_area": "env(safe-area-inset-bottom)"
+    },
+    "zones": [
+      "profile: fixed top",
+      "diagnostics: scrollable",
+      "nav: scrollable",
+      "footer: fixed bottom"
+    ],
+    "overflow": "только средняя область прокручивается, футер не уходит за экран",
+    "z_index": {
+      "drawer": 1000,
+      "backdrop": 900,
+      "popovers": 1100
+    }
+  },
+  "design_tokens": {
+    "theme": "dark",
+    "colors": {
+      "app_background": "#11121B",
+      "sidebar_background": "#1D1E2B",
+      "surface": "#272838",
+      "surface_raised": "#302735",
+      "surface_hover": "#353044",
+      "selection_background": "#493249",
+      "primary_text": "#F3EEF5",
+      "secondary_text": "#B8B5C7",
+      "tertiary_text": "#9695AB",
+      "border": "#454456",
+      "accent_pink": "#F1ACD2",
+      "accent_purple": "#DCA5F4",
+      "info": "#82BDFC",
+      "success": "#70DBA0",
+      "warning": "#F0C17E",
+      "error": "#F28B96",
+      "focus_ring": "#97BFFF"
+    },
+    "fonts": {
+      "family": "Inter, system-ui, -apple-system, Segoe UI, sans-serif",
+      "fallback_cjk": "Noto Sans",
+      "weights": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "sizes_px": {
+        "page_title": 22,
+        "panel_title": 16,
+        "menu_item": 14,
+        "body": 14,
+        "secondary": 12,
+        "micro": 11
+      },
+      "line_height": {
+        "heading": 1.3,
+        "body": 1.45,
+        "compact": 1.35
+      },
+      "letter_spacing": "normal"
+    },
+    "spacing_px": {
+      "sidebar_padding": 12,
+      "section_gap": 12,
+      "card_padding": 12,
+      "menu_item_padding_x": 12,
+      "menu_item_padding_y": 10,
+      "icon_to_text": 10,
+      "subsection_gap": 8,
+      "divider_margin_y": 8
+    },
+    "sizes_px": {
+      "profile_avatar": 60,
+      "profile_card_min_height": 84,
+      "nav_item_min_height": 44,
+      "status_compact_min_height": 54,
+      "icon": 18,
+      "icon_large": 20,
+      "divider": 1,
+      "focus_ring": 2,
+      "scrollbar": 6
+    },
+    "radii_px": {
+      "sidebar": 16,
+      "card": 12,
+      "item": 9,
+      "avatar": 12,
+      "pill": 999
+    },
+    "shadows": {
+      "drawer": "0 24px 64px rgba(0,0,0,0.45)"
+    },
+    "motion": {
+      "hover_ms": 160,
+      "expand_ms": 220,
+      "drawer_ms": 260,
+      "easing": "cubic-bezier(.2,.8,.2,1)",
+      "reduced_motion": "при prefers-reduced-motion: reduce отключить несущественные анимации и движения персонажа"
+    },
+    "light_theme_optional": {
+      "app_background": "#F7F7FB",
+      "sidebar_background": "#FFFFFF",
+      "surface": "#F2F0F6",
+      "primary_text": "#242235",
+      "secondary_text": "#625F70",
+      "border": "#E3DEEA",
+      "selection_background": "#FCE6F1",
+      "accent_pink": "#9C3869"
+    }
+  },
+  "sidebar_structure": [
+    {
+      "id": "profile",
+      "position": "fixed_top",
+      "component": "ProfileCard",
+      "text": {
+        "title": "Sayuri Kitsune",
+        "subtitle": "Личный кабинет",
+        "activity_example": "Готова помочь"
+      },
+      "avatar": "из локальных assets (не подгружать случайную картинку)",
+      "action": "открыть персональный кабинет",
+      "cabinet_sections": [
+        "Личность и живой характер",
+        "Навыки",
+        "Подтверждённый опыт",
+        "Библиотека знаний",
+        "История развития",
+        "Голос и реакции"
+      ],
+      "animation_rule": "визуальное настроение — художественная реакция на контекст, не биологические эмоции"
+    },
+    {
+      "id": "sayuri_status",
+      "position": "scrollable",
+      "component": "Accordion",
+      "title": "Состояние Саюри",
+      "subtitle": "Память · Логика · Задачи",
+      "default_expanded": false,
+      "statuses": [
+        {
+          "id": "ready",
+          "label": "Готова помочь",
+          "when": "backend здоров, очередь ожидает запроса",
+          "icon": "circle-check",
+          "tone": "success"
+        },
+        {
+          "id": "reasoning",
+          "label": "Размышляет",
+          "when": "получен сигнал обработки ответа",
+          "icon": "brain",
+          "tone": "purple"
+        },
+        {
+          "id": "researching",
+          "label": "Исследует",
+          "when": "идёт поиск внешних или внутренних источников",
+          "icon": "search",
+          "tone": "info"
+        },
+        {
+          "id": "studying",
+          "label": "Изучает",
+          "when": "анализ файлов/книг/документов",
+          "icon": "book-open",
+          "tone": "warning"
+        },
+        {
+          "id": "memorizing",
+          "label": "Запоминает",
+          "when": "реальная транзакция записи в память",
+          "icon": "database",
+          "tone": "info"
+        },
+        {
+          "id": "linking",
+          "label": "Строит связи",
+          "when": "обновляется граф знаний",
+          "icon": "network",
+          "tone": "purple"
+        },
+        {
+          "id": "verifying",
+          "label": "Проверяет",
+          "when": "проверяет ошибки, источники или противоречия",
+          "icon": "shield-check",
+          "tone": "warning"
+        },
+        {
+          "id": "executing",
+          "label": "Выполняет задачу",
+          "when": "выполняет инструмент/агентную операцию",
+          "icon": "workflow",
+          "tone": "info"
+        },
+        {
+          "id": "idle",
+          "label": "Ожидает",
+          "when": "нет активных операций",
+          "icon": "moon",
+          "tone": "neutral"
+        },
+        {
+          "id": "disconnected",
+          "label": "Нет подключения",
+          "when": "потерян доступ к необходимому сервису; уточнять какому",
+          "icon": "wifi-off",
+          "tone": "error"
+        },
+        {
+          "id": "attention",
+          "label": "Требует внимания",
+          "when": "ошибка или нужна авторизация/подтверждение",
+          "icon": "triangle-alert",
+          "tone": "error"
+        },
+        {
+          "id": "completed",
+          "label": "Завершила",
+          "when": "подтверждено успешное завершение задачи; временное событие",
+          "icon": "check-check",
+          "tone": "success"
+        }
+      ],
+      "display": "в свернутом виде только главный актуальный статус; в раскрытом активные процессы и недавние события, остальные в перечне состояний",
+      "priority": [
+        "attention",
+        "disconnected",
+        "executing",
+        "verifying",
+        "studying",
+        "researching",
+        "reasoning",
+        "memorizing",
+        "linking",
+        "completed",
+        "ready",
+        "idle"
+      ]
+    },
+    {
+      "id": "network",
+      "position": "scrollable",
+      "component": "Accordion",
+      "title": "Сеть и сервер",
+      "default_expanded": false,
+      "signals": [
+        "Internet reachability (через серверную проверку; не приравнивать к navigator.onLine)",
+        "Backend Sayuri health",
+        "WebSocket/SSE состояние",
+        "server_latency_ms",
+        "last_success_at",
+        "failure_reason"
+      ],
+      "states": [
+        "online",
+        "degraded",
+        "offline",
+        "checking",
+        "unknown"
+      ],
+      "rule": "различать отключение интернета, отказ локального backend, таймаут и устаревшую телеметрию"
+    },
+    {
+      "id": "cloud",
+      "position": "scrollable",
+      "component": "Accordion",
+      "title": "Cloud.ru AI",
+      "default_expanded": false,
+      "signals": [
+        "Cloud.ru API reachable",
+        "активный model_id",
+        "проверка авторизации",
+        "latency_ms",
+        "active_requests",
+        "HTTP код/тип ошибки",
+        "requests_count",
+        "token_usage",
+        "cost_rub (только если подтверждается прайсом и usage)"
+      ],
+      "states": [
+        "connected",
+        "degraded",
+        "rate_limited",
+        "auth_error",
+        "insufficient_balance",
+        "timeout",
+        "unreachable",
+        "checking",
+        "unknown"
+      ],
+      "security": "не выводить полный ключ, заголовки авторизации, приватные сообщения и внутренние stack traces"
+    },
+    {
+      "id": "navigation",
+      "position": "scrollable",
+      "component": "NavList",
+      "items": [
+        {
+          "id": "chat",
+          "label": "Единый чат",
+          "icon": "message-circle",
+          "path": "/chat"
+        },
+        {
+          "id": "work",
+          "label": "Рабочие проекты",
+          "icon": "briefcase-business",
+          "path": "/projects/work"
+        },
+        {
+          "id": "docs",
+          "label": "Документы / Облако / Sayuri",
+          "icon": "cloud",
+          "path": "/cloud"
+        },
+        {
+          "id": "home",
+          "label": "Домашние проекты",
+          "icon": "house",
+          "path": "/projects/home"
+        }
+      ],
+      "active_item": "левый акцент/выделенный фон, aria-current=page"
+    },
+    {
+      "id": "update",
+      "position": "fixed_bottom",
+      "component": "FooterNav",
+      "title": "Обновление проекта",
+      "icon": "refresh-cw",
+      "path": "/updates",
+      "contents": [
+        "текущая версия",
+        "доступная версия",
+        "проверка и журнал обновлений",
+        "ошибки",
+        "безопасный перезапуск после подтверждения"
+      ]
+    }
+  ],
+  "interaction": {
+    "accordion": "каждая секция раскрывается независимо; aria-expanded; клавиатура Enter/Space",
+    "profile": "клик на карточку открывает кабинет, не переключает диагностические статусы",
+    "drawer": "focus trap на мобильном и восстановление фокуса после закрытия",
+    "status": "никакого ручного выбора состояния в production; режим демонстрации допускается только отдельно",
+    "long_text": "одна-две строки, перенос длинного названия облака без обрезки жизненно важных статусов",
+    "feedback": "loading/success/error states для действий"
+  },
+  "telemetry_contract": {
+    "transport": "SSE либо WebSocket; fallback REST polling ~15–30 s только для health, без бесконечного частого опроса",
+    "sample_event": {
+      "event": "runtime_status",
+      "ts": "2026-10-04T12:00:00Z",
+      "task_id": "example-task",
+      "sayuri": {
+        "state": "studying",
+        "active_jobs": 2,
+        "description": "Анализ PDF",
+        "progress_percent": null
+      },
+      "network": {
+        "state": "online",
+        "backend": "online",
+        "latency_ms": null
+      },
+      "cloud_ru": {
+        "state": "connected",
+        "model_id": null,
+        "latency_ms": null,
+        "active_requests": 0,
+        "last_error": null
+      }
+    },
+    "timestamp_logic": "при устаревании данных обозначать «Нет свежих данных», а не «Работает»",
+    "privacy": "убрать текст документов из status event; проверять права на задачи, проекты и память",
+    "reconnect": "exponential backoff с jitter и видимым статусом повторного подключения",
+    "performance": "не перерисовывать всё меню на каждый токен; троттлинг частых событий",
+    "backend_sources": [
+      "health endpoints",
+      "task runner events",
+      "memory DB transaction events",
+      "document pipeline events",
+      "API provider telemetry"
+    ]
+  },
+  "a11y_and_quality": {
+    "contrast": "минимум WCAG AA: 4.5:1 для обычного текста",
+    "targets_px": "интерактивные цели не меньше 44x44",
+    "screen_reader": "aria-label, aria-live=polite только на приоритетных изменениях; не озвучивать каждое обновление",
+    "keyboard": "Tab, Enter, Space, Escape",
+    "performance": "аватар локальный webp/avif; lazy-load кабинета; no layout shift",
+    "compatibility": "Windows desktop browser, mobile browsers",
+    "tests": [
+      "адаптация 360/390/768/1024/1440 px",
+      "keyboard/screen-reader",
+      "переподключение при потерях Cloud.ru и backend",
+      "отображение всех 12 статусов только при фактических событиях",
+      "фиксированный нижний update при длинных раскрытых списках",
+      "контраст и prefers-reduced-motion",
+      "маскирование API-ключа"
+    ]
+  },
+  "implementation_acceptance": [
+    "компоненты Sidebar, ProfileCard, StatusAccordion, NetworkAccordion, CloudAccordion, NavList, UpdateFooter",
+    "сохранена изоляция личной и проектной памяти",
+    "сервер является источником истины для статусов",
+    "Cloud.ru и интернет имеют отдельные индикаторы",
+    "нет выдуманных процентов развития, задержек, токенов и стоимости",
+    "кабинет доступен из аватара",
+    "меню полноценно работает на мобильном и десктопе"
+  ],
+  "instructions_for_coding_ai": [
+    "Вначале изучи текущую структуру приложения, маршруты, дизайн-токены, реальные health/API контракты и существующие компоненты.",
+    "Соблюдай стек проекта, не добавляй тяжёлый UI-фреймворк без необходимости.",
+    "Не удаляй существующие функции, сохрани совместимость проекта и историю обновлений.",
+    "Используй данные и настоящие события backend; при отсутствии endpoint показывай unknown/не настроено и отдельно предложи миграцию.",
+    "Реализуй тесты, проверь ошибки, собери проект и выведи список изменённых файлов и результаты проверки."
+  ]
+}
