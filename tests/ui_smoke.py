@@ -48,7 +48,21 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.7.4",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.8.0",width
+                        assert page.locator("#accountProjectVersion").inner_text()=="4.8.0",width
+                        assert page.locator("#accountCoreVersion").inner_text()=="3.0.0",width
+                        assert page.locator("#accountMemoryVersion").inner_text()=="3.0.0",width
+                        assert page.locator("#memoryBlock").is_visible(),width
+                        assert page.locator("#memorySummary").is_visible(),width
+                        assert page.locator("#memoryScope").is_visible(),width
+                        assert page.locator("#memoryType").is_visible(),width
+                        page.locator("#memoryScope").select_option("project")
+                        assert page.locator("#memoryProjectField").is_visible(),width
+                        page.locator("#memoryScope").select_option("temporary")
+                        assert page.locator("#memoryTtlField").is_visible(),width
+                        page.locator("#memoryScope").select_option("personal")
+                        assert not page.locator("#memoryProjectField").is_visible(),width
+                        assert not page.locator("#memoryTtlField").is_visible(),width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -179,7 +193,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.4')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.8.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
@@ -188,6 +202,24 @@ def run():
                         page.locator("#updatesBackCabinet").click()
                         assert page.locator("#accountView").is_visible(),width
                         assert page.locator("#showUpdates").count()==1,width
+                        # Memory 3.0 functional smoke: create then remove a working note.
+                        memory_suffix=page.evaluate("Date.now().toString().slice(-7)")
+                        memory_text="UI Memory "+str(width)+" "+memory_suffix
+                        page.locator("#memoryScope").select_option("working")
+                        page.locator("#memoryType").select_option("note")
+                        page.locator("#memoryPriority").select_option("4")
+                        page.locator("#fact").fill(memory_text)
+                        page.locator("#memoryForm button[type='submit']").click()
+                        page.wait_for_function("""text => Array.from(document.querySelectorAll('#memories .memory3-card-text'))
+                          .some(node => node.textContent === text)""",arg=memory_text)
+                        memory_card=page.locator("#memories .memory3-card").filter(has_text=memory_text).first
+                        assert memory_card.get_attribute("data-scope")=="working",(width,memory_text)
+                        page.once("dialog",lambda dialog:dialog.accept())
+                        memory_card.locator("button").filter(has_text="Удалить").click()
+                        page.wait_for_function("""text => !Array.from(document.querySelectorAll('#memories .memory3-card-text'))
+                          .some(node => node.textContent === text)""",arg=memory_text)
+                        page.locator("#memoryScope").select_option("personal")
+                        page.evaluate("document.getElementById('showFiles').click()")
                         page.evaluate("document.getElementById('showFiles').click()")
                         page.wait_for_timeout(120)
                         assert page.locator("#filesView").is_visible(),width
