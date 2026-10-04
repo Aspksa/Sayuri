@@ -26,7 +26,7 @@ async function refresh(){
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();const payload={text};if(activeProjectMemoryId)payload.project_id=activeProjectMemoryId;await api('/chats/'+active+'/send','POST',payload);$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
 async function account(){
- loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();loadMemory3();loadMemoryProjectOptions();
+ loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();loadMemory3();loadMemoryProjectOptions();loadKnowledge31();
  try{
   const [p,stats]=await Promise.all([api('/persona'),api('/learning/stats')]);
   $('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');
@@ -114,13 +114,13 @@ async function loadMemory3(){
    const actions=document.createElement('div');actions.className='memory3-card-actions';
    if(item.status==='active'){
     const archive=document.createElement('button');archive.type='button';archive.textContent='В архив';
-    archive.onclick=async()=>{try{await api('/memory/'+item.id+'/archive','POST');await loadMemory3();await loadDevelopment()}catch(e){fail(e)}};
+    archive.onclick=async()=>{try{await api('/memory/'+item.id+'/archive','POST');await loadMemory3();await loadDevelopment();await loadKnowledge31()}catch(e){fail(e)}};
     actions.append(archive);
    }
    const del=document.createElement('button');del.type='button';del.textContent='Удалить';del.className='danger';
    del.onclick=async()=>{
     if(!confirm('Удалить эту запись памяти без возможности восстановления?'))return;
-    try{await api('/memory/'+item.id,'DELETE');await loadMemory3();await loadDevelopment()}catch(e){fail(e)}
+    try{await api('/memory/'+item.id,'DELETE');await loadMemory3();await loadDevelopment();await loadKnowledge31()}catch(e){fail(e)}
    };
    actions.append(del);
    card.append(top,text,meta,actions);box.append(card);
@@ -137,6 +137,181 @@ function openProjectMemory(projectId){
   $('#fact').focus();
  });
 }
+
+const knowledgeRelationLabels={
+ related:'Связано с',supports:'Подтверждает',contradicts:'Противоречит',
+ derived_from:'Получено из',updates:'Обновляет'
+};
+let knowledgeSearchTimer=null;
+
+function knowledgeProjectParam(){
+ return activeProjectMemoryId?activeProjectMemoryId:'';
+}
+function knowledgeContextLabel(){
+ const node=$('#knowledgeContext');if(!node)return;
+ node.textContent=activeProjectMemoryId?'Контекст проекта: '+activeProjectMemoryId:'Контекст: общие знания';
+ node.classList.toggle('active',Boolean(activeProjectMemoryId));
+}
+function knowledgeMemoryOptionLabel(item){
+ const text=(item.text||'').replace(/\s+/g,' ').trim();
+ return (memoryScopeLabels[item.scope]||item.scope)+' · P'+item.priority+' · '+text.slice(0,90);
+}
+async function loadKnowledgeLinkOptions(){
+ const left=$('#knowledgeLinkLeft'),right=$('#knowledgeLinkRight');if(!left||!right)return;
+ try{
+  const items=await api('/memory?status=active&limit=500');
+  const currentLeft=left.value,currentRight=right.value;
+  left.replaceChildren();right.replaceChildren();
+  for(const item of items){
+   for(const select of (left,right)){
+    const option=document.createElement('option');
+    option.value=item.id;option.textContent=knowledgeMemoryOptionLabel(item);
+    select.append(option);
+   }
+  }
+  if(currentLeft&&[...left.options].some(x=>x.value===currentLeft))left.value=currentLeft;
+  if(currentRight&&[...right.options].some(x=>x.value===currentRight))right.value=currentRight;
+  if(!right.value&&right.options.length>1)right.selectedIndex=1;
+ }catch(e){$('#knowledgeLinkStatus').textContent='Не удалось загрузить записи памяти: '+e.message}
+}
+function knowledgeResultCard(item){
+ const card=document.createElement('article');card.className='knowledge31-result';
+ const top=document.createElement('div');top.className='knowledge31-result-top';
+ const score=document.createElement('strong');score.textContent=Math.round((item.knowledge_score||0)*100)+'%';
+ const source=document.createElement('span');source.textContent=item.source_info?.title||item.source||'Источник не указан';
+ top.append(score,source);
+ const text=document.createElement('p');text.textContent=item.text;
+ const meta=document.createElement('small');
+ meta.textContent=(memoryScopeLabels[item.scope]||item.scope)+' · '+(memoryTypeLabels[item.memory_type]||item.memory_type)+
+   ' · P'+item.priority+(item.project_id?' · '+item.project_id:'')+
+   (item.graph_boost?' · усилено связями':'');
+ card.append(top,text,meta);return card;
+}
+async function runKnowledgeSearch(){
+ const box=$('#knowledgeLibrary'),status=$('#knowledgeSearchStatus');if(!box||!status)return;
+ const q=$('#knowledgeSearch').value.trim();box.replaceChildren();
+ if(!q){status.textContent='Введите запрос. Поиск выполняется локально по индексированным подтверждённым записям.';return}
+ status.textContent='Ищу по локальному индексу…';
+ const params=new URLSearchParams({q,limit:'30'});
+ if(activeProjectMemoryId)params.set('project_id',activeProjectMemoryId);
+ try{
+  const data=await api('/knowledge/search?'+params.toString());
+  status.textContent='Найдено: '+data.items.length+' · индекс Knowledge '+data.version+
+   (activeProjectMemoryId?' · проект '+activeProjectMemoryId:'');
+  if(!data.items.length){box.textContent='Похожих подтверждённых знаний не найдено.';return}
+  for(const item of data.items)box.append(knowledgeResultCard(item));
+ }catch(e){status.textContent='Поиск недоступен: '+e.message}
+}
+function sourceCard(item){
+ const card=document.createElement('article');card.className='knowledge31-source';
+ const title=document.createElement('strong');title.textContent=item.title;
+ const meta=document.createElement('small');meta.textContent='Записей: '+item.count+' · доверие '+Math.round((item.trust||0)*100)+'%';
+ card.append(title,meta);
+ if(item.ref){const ref=document.createElement('span');ref.textContent=item.ref;card.append(ref)}
+ return card;
+}
+function conflictCard(item){
+ const card=document.createElement('article');card.className='knowledge31-conflict';card.dataset.status=item.status;
+ const head=document.createElement('div');head.className='knowledge31-conflict-head';
+ const state=document.createElement('strong');state.textContent=item.status==='pending'?'Требует проверки':item.status==='resolved'?'Проверено':'Игнорируется';
+ const similarity=document.createElement('span');similarity.textContent=Math.round(item.similarity*100)+'% похожести';
+ head.append(state,similarity);
+ const reason=document.createElement('small');reason.textContent=item.reason;
+ const pair=document.createElement('div');pair.className='knowledge31-conflict-pair';
+ const left=document.createElement('p');left.textContent=item.left.text;
+ const right=document.createElement('p');right.textContent=item.right.text;
+ pair.append(left,right);card.append(head,reason,pair);
+ if(item.note){const note=document.createElement('small');note.textContent='Комментарий: '+item.note;card.append(note)}
+ if(item.status==='pending'){
+  const actions=document.createElement('div');actions.className='knowledge31-conflict-actions';
+  const resolve=document.createElement('button');resolve.type='button';resolve.textContent='Проверено';
+  resolve.onclick=()=>reviewKnowledgeConflict(item.key,'resolved');
+  const ignore=document.createElement('button');ignore.type='button';ignore.textContent='Не считать конфликтом';
+  ignore.onclick=()=>reviewKnowledgeConflict(item.key,'ignored');
+  actions.append(resolve,ignore);card.append(actions);
+ }
+ return card;
+}
+async function reviewKnowledgeConflict(key,status){
+ try{
+  await api('/knowledge/conflicts/'+key,'PUT',{status,note:''});
+  await loadKnowledge31();
+ }catch(e){$('#knowledgeSearchStatus').textContent=e.message}
+}
+function knowledgeLinkCard(link,memoryMap){
+ const card=document.createElement('article');card.className='knowledge31-link';
+ const left=memoryMap.get(link.left_memory_id),right=memoryMap.get(link.right_memory_id);
+ const title=document.createElement('strong');
+ title.textContent=(left?.text||link.left_memory_id).slice(0,90)+' → '+knowledgeRelationLabels[link.relation]+' → '+
+   (right?.text||link.right_memory_id).slice(0,90);
+ const meta=document.createElement('small');meta.textContent='Уверенность '+Math.round(link.confidence*100)+'%'+(link.note?' · '+link.note:'');
+ const del=document.createElement('button');del.type='button';del.textContent='Удалить связь';
+ del.onclick=async()=>{try{await api('/knowledge/links/'+link.id,'DELETE');await loadKnowledge31()}catch(e){$('#knowledgeLinkStatus').textContent=e.message}};
+ card.append(title,meta,del);return card;
+}
+async function loadKnowledge31(){
+ const summaryBox=$('#knowledgeSummary'),sourcesBox=$('#knowledgeSources'),
+       conflictsBox=$('#knowledgeConflicts'),linksBox=$('#knowledgeLinks');
+ if(!summaryBox||!sourcesBox||!conflictsBox||!linksBox)return;
+ knowledgeContextLabel();
+ const params=new URLSearchParams();
+ if(activeProjectMemoryId)params.set('project_id',activeProjectMemoryId);
+ const suffix=params.toString()?'?'+params.toString():'';
+ try{
+  const [summary,sources,conflicts,links,memories]=await Promise.all([
+   api('/knowledge/summary'+suffix),api('/knowledge/sources'+suffix),
+   api('/knowledge/conflicts'+suffix),api('/knowledge/links'),
+   api('/memory?status=active&limit=500')
+  ]);
+  summaryBox.replaceChildren();
+  for(const pair of [
+   ['В индексе',summary.indexed],['Связи',summary.links],['Источники',summary.sources],
+   ['Противоречия',summary.conflicts],['На проверке',summary.pending_conflicts]
+  ])summaryBox.append(metric(pair[0],pair[1]));
+  $('#knowledgeSourceCount').textContent=String(sources.items.length);
+  sourcesBox.replaceChildren();
+  if(!sources.items.length)sourcesBox.textContent='Источников пока нет.';
+  for(const item of sources.items)sourcesBox.append(sourceCard(item));
+
+  $('#knowledgeConflictCount').textContent=String(conflicts.items.filter(x=>x.status==='pending').length);
+  conflictsBox.replaceChildren();
+  if(!conflicts.items.length)conflictsBox.textContent='Кандидатов противоречий не найдено.';
+  for(const item of conflicts.items)conflictsBox.append(conflictCard(item));
+
+  $('#knowledgeLinkCount').textContent=String(links.length);
+  linksBox.replaceChildren();
+  const memoryMap=new Map(memories.map(item=>[item.id,item]));
+  if(!links.length)linksBox.textContent='Явных связей между знаниями пока нет.';
+  for(const link of links)linksBox.append(knowledgeLinkCard(link,memoryMap));
+  await loadKnowledgeLinkOptions();
+ }catch(e){
+  summaryBox.textContent='Knowledge 3.1 недоступен: '+e.message;
+ }
+}
+
+$('#knowledgeSearchButton').onclick=runKnowledgeSearch;
+$('#knowledgeSearch').onkeydown=event=>{
+ if(event.key==='Enter'){event.preventDefault();runKnowledgeSearch()}
+};
+$('#knowledgeSearch').oninput=()=>{
+ clearTimeout(knowledgeSearchTimer);
+ knowledgeSearchTimer=setTimeout(()=>{if($('#knowledgeSearch').value.trim().length>=3)runKnowledgeSearch()},280);
+};
+$('#knowledgeLinkForm').onsubmit=async event=>{
+ event.preventDefault();
+ const left=$('#knowledgeLinkLeft').value,right=$('#knowledgeLinkRight').value;
+ if(!left||!right){$('#knowledgeLinkStatus').textContent='Выберите две записи.';return}
+ if(left===right){$('#knowledgeLinkStatus').textContent='Нельзя связать запись саму с собой.';return}
+ $('#knowledgeLinkStatus').textContent='Сохраняю связь…';
+ try{
+  await api('/knowledge/links','POST',{
+   left_memory_id:left,right_memory_id:right,relation:$('#knowledgeLinkRelation').value,
+   confidence:1,note:$('#knowledgeLinkNote').value.trim()
+  });
+  $('#knowledgeLinkNote').value='';$('#knowledgeLinkStatus').textContent='Связь сохранена.';
+  await loadKnowledge31();
+ }catch(e){$('#knowledgeLinkStatus').textContent=e.message}
+};
 
 async function files(){try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
   const row=document.createElement('div');row.className='line';
@@ -170,7 +345,7 @@ async function showProject(category,relative=''){
     }
     const data=await api('/projects/'+category+'/list?path='+encodeURIComponent(relative));
     activeProjectMemoryId=data.memory_project_id||actual.memory_project_id||null;
-    updateMemoryActiveProject();
+    updateMemoryActiveProject();knowledgeContextLabel();
     const memoryBar=document.createElement('div');memoryBar.className='project-memory-bar';
     const memoryText=document.createElement('span');memoryText.textContent='Memory 3.0 · '+(activeProjectMemoryId||'контекст не определён');
     const memoryButton=document.createElement('button');memoryButton.type='button';memoryButton.textContent='Память проекта';
@@ -289,7 +464,7 @@ $('#memoryForm').onsubmit=async e=>{
  try{
   await api('/memory','POST',payload);
   $('#fact').value='';$('#memoryFormStatus').textContent='Сохранено в Memory 3.0';
-  await loadMemory3();await loadDevelopment();
+  await loadMemory3();await loadDevelopment();await loadKnowledge31();
   window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'memory_updated',module:'account',entity_type:'memory',entity_id:scope}}));
  }catch(x){$('#memoryFormStatus').textContent=x.message}
 };
@@ -441,34 +616,7 @@ async function loadDevelopment(){
   experience.replaceChildren();
   for(const [label,value] of [['Сообщения',n.messages],['Диалоги',n.chats],['Знания',n.memories],['Документы',n.documents],['Предложения на проверке',n.memory_candidates]])experience.append(metric(label,value));
   $('#experienceJournal').textContent='Опыт собирается из фактической истории сообщений, исправлений и подтверждённой памяти. Автоматическая оценка способностей пока не проводилась.';
-  const library=$('#knowledgeLibrary');
-  const drawLibrary=()=>{
-   const q=$('#knowledgeSearch').value.trim().toLowerCase();
-   library.replaceChildren();
-   const chapters=document.createElement('div');chapters.className='journal-entry';
-   chapters.textContent='Библиотека персонажа: '+persona.dialogues+' учебных диалогов, '+persona.phrases+' реплик, '+persona.chapters+' глав легенды, '+persona.rituals+' ритуалов.';
-   if(!q||chapters.textContent.toLowerCase().includes(q))library.append(chapters);
-   const extra=[
-     ...(persona.lore_titles||[]).map((title,i)=>({label:'Глава '+(i+1)+': '+title,source:'Легенда · профиль 2.0'})),
-     ...(persona.ritual_titles||[]).map((title,i)=>({label:'Ритуал '+(i+1)+': '+title,source:'Ритуалы · профиль 2.0'})),
-     ...documents.map(d=>({label:d.name,source:'Загруженный документ · ещё не индексирован'}))
-   ];
-   for(const item of extra.filter(x=>x.label.toLowerCase().includes(q))){
-     const entry=document.createElement('div');entry.className='journal-entry';entry.textContent=item.label;
-     const subtitle=document.createElement('small');subtitle.textContent=item.source;
-     entry.append(subtitle);library.append(entry);
-   }
-   const relevant=memory.filter(m=>m.text.toLowerCase().includes(q));
-   for(const m of relevant){
-    const entry=document.createElement('div');entry.className='journal-entry';
-    entry.textContent=m.text;
-    const memoryScopeLabels={personal:'Личная',project:'Проектная',working:'Рабочая',temporary:'Временная'};
-    const small=document.createElement('small');small.textContent=(memoryScopeLabels[m.scope]||m.scope)+' память · '+(m.memory_type||'fact')+' · '+(m.source||'подтверждено');
-    entry.append(small);library.append(entry);
-   }
-   if(!library.childElementCount)library.textContent='Совпадений нет.';
-  };
-  $('#knowledgeSearch').oninput=drawLibrary;drawLibrary();
+  loadKnowledge31();
   history.replaceChildren();
   if(!data.history.length)history.textContent='События развития пока не записаны.';
   for(const event of data.history){
@@ -985,13 +1133,16 @@ async function loadBuildInfo(){
  try{
   const data=await api('/build/info');
   const projectVersion=data.project_version||data.ui_version;
-  const coreVersion=data.core_version||'3.0.0',memoryVersion=data.memory_version||'3.0.0';
-  info.textContent='Проект '+projectVersion+' · Core '+coreVersion+' · Memory '+memoryVersion+' · Интерфейс '+data.ui_version;
+  const coreVersion=data.core_version||'3.1.0',memoryVersion=data.memory_version||'3.0.0',
+        knowledgeVersion=data.knowledge_version||'3.1.0';
+  info.textContent='Проект '+projectVersion+' · Ядро '+coreVersion+' · Память '+memoryVersion+
+    ' · Знания '+knowledgeVersion+' · Интерфейс '+data.ui_version;
   folder.textContent=data.running_folder;
   $('#accountUiVersion').textContent=data.ui_version;
   $('#accountProjectVersion').textContent=projectVersion;
   $('#accountCoreVersion').textContent=coreVersion;
   $('#accountMemoryVersion').textContent=memoryVersion;
+  $('#accountKnowledgeVersion').textContent=knowledgeVersion;
   $('#runningVersionNote').textContent='Этот путь принадлежит серверу, который сейчас отвечает браузеру. Если вы скачали ZIP в другую папку, дизайн здесь не изменится.';
  }catch(e){
   info.textContent='Версия сервера не определена';
