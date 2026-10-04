@@ -101,6 +101,23 @@ def run():
                             assert page.locator("#homeView").is_visible()
                             assert page.locator("#showHome").get_attribute("aria-current")=="page"
                         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
+                        # BEYOND: one persistent character across SPA navigation.
+                        fox=page.locator("#foxAvatar")
+                        assert fox.count()==1 and fox.is_visible(),width
+                        fox.click(button="right")
+                        assert page.locator("#foxContextMenu").is_visible(),width
+                        page.keyboard.press("Escape")
+                        assert not page.locator("#foxContextMenu").is_visible(),width
+                        if width in (390,1440):
+                            original=fox.bounding_box()
+                            page.mouse.move(original["x"]+original["width"]/2,original["y"]+original["height"]/2)
+                            page.mouse.down()
+                            page.mouse.move(15,35,steps=5)
+                            page.mouse.up()
+                            changed=fox.bounding_box()
+                            assert changed["x"]>=0 and changed["y"]>=0,(width,changed)
+                            assert changed["x"]+changed["width"]<=width+1,changed
+                            page.locator("#foxModeFloating").click() if width==1440 else None
                         assert not errors,(width,errors)
                         context.close()
                     print("Browser UI PASS: 360, 390, 768, 1024, 1440; focus, drawer, collapse, footer")
