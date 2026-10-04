@@ -48,12 +48,14 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.11.0",width
-                        assert page.locator("#accountProjectVersion").inner_text()=="4.11.0",width
-                        assert page.locator("#accountCoreVersion").inner_text()=="3.3.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.12.0",width
+                        assert page.locator("#accountProjectVersion").inner_text()=="4.12.0",width
+                        assert page.locator("#accountCoreVersion").inner_text()=="3.4.0",width
                         assert page.locator("#accountMemoryVersion").inner_text()=="3.0.0",width
                         assert page.locator("#accountKnowledgeVersion").inner_text()=="3.1.0",width
                         assert page.locator("#accountInstinctVersion").inner_text()=="3.2.0",width
+                        assert page.locator("#accountPersonalityVersion").inner_text()=="3.0.0",width
+                        assert page.locator("#accountPersonaBaseVersion").inner_text()=="2.0.0",width
                         assert page.locator("#instinctBlock").is_visible(),width
                         assert page.locator("#instinctTestButton").is_visible(),width
                         page.wait_for_function("() => document.querySelector('#instinctSummary').children.length >= 5")
@@ -224,7 +226,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.11.0')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.12.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
