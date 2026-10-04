@@ -154,6 +154,10 @@ def run():
                         personality_presence=page.evaluate("window.SayuriPresence.getSnapshot()")
                         assert personality_presence["personalityState"]=="analytical",(width,personality_presence)
                         page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
+                        # Initiative must not interrupt the owner while BEYOND settings are open.
+                        if page.locator("#foxContextMenu").is_visible():
+                            page.keyboard.press("Escape")
+                            page.wait_for_function("() => document.querySelector('#foxContextMenu').hidden")
                         # Initiative 3.5: BEYOND receives one guarded proactive offer and records reaction.
                         initiative_reactions=[]
                         def initiative_next_route(route):
