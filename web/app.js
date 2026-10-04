@@ -3,7 +3,22 @@ async function api(path,method='GET',data=null){const opts={method,headers:{}};i
 function fail(e){$('#error').textContent=e.message||String(e)}
 async function sign(up=false){try{const password=$('#password').value;if(up)await api('/auth/setup','POST',{password});const v=await api('/auth/login','POST',{password});token=v.token;sessionStorage.setItem('sayuri_token',token);$('#gate').classList.add('hidden');$('#password').value='';await refresh()}catch(e){$('#gateError').textContent=e.message}}
 function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');document.body.classList.remove('open');if(id==='account')account();if(id==='files')files()}
-function threads(){const box=$('#threads');box.replaceChildren();const q=$('#search').value.toLowerCase();for(const c of chats.filter(x=>x.title.toLowerCase().includes(q))){const b=document.createElement('button');b.textContent=c.title;b.className=active===c.id?'active':'';b.onclick=async()=>{active=c.id;threads();view('chat');await messages()};box.append(b)}}
+function threads(){
+ const box=$('#threads');box.replaceChildren();
+ const q=$('#search').value.toLowerCase();
+ for(const c of chats.filter(x=>x.title.toLowerCase().includes(q))){
+   const row=document.createElement('div');row.className='line';
+   const b=document.createElement('button');b.textContent=c.title;b.className=active===c.id?'active':'';
+   b.style.flex='1';b.style.minWidth='0';b.style.overflow='hidden';b.style.textOverflow='ellipsis';
+   b.onclick=async()=>{active=c.id;threads();view('chat');await messages()};
+   const del=document.createElement('button');del.textContent='×';del.title='Удалить диалог';del.style.width='auto';
+   del.onclick=async()=>{
+     if(!confirm('Удалить диалог и его сообщения?'))return;
+     try{await api('/chats/'+c.id,'DELETE');if(active===c.id)active=null;await refresh()}catch(e){fail(e)}
+   };
+   row.append(b,del);box.append(row);
+ }
+}
 async function refresh(){chats=await api('/chats');if(!chats.some(c=>c.id===active))active=chats[0]?.id||null;threads();await messages();const h=await api('/health');$('#cloud').textContent=h.cloud_configured?'Cloud.ru настроен':'Cloud.ru: требуется ключ'}
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Здравствуйте, Господин. Создайте чат, чтобы начать беседу.';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Саюри';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function newChat(){try{const c=await api('/chats','POST',{title:'Новый чат'});active=c.id;await refresh();view('chat')}catch(e){fail(e)}}
