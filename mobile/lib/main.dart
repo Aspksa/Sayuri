@@ -75,9 +75,9 @@ class _ChatState extends State<ChatScreen> {
     if (active.isNotEmpty) messages=await api('/chats/$active/messages');
     if(mounted) setState(() {});
   }
-  Future<void> createChat() async {
+  Future<void> createChat({String kind='sayuri'}) async {
     try {
-      final result=await api('/chats',method:'POST',data:{'title':'Новый чат'});
+      final result=await api('/chats',method:'POST',data:{'title':kind=='teacher'?'Диалог с наставником':'Новый чат','kind':kind});
       active=result['id'];
       messages=[];
       await loadChats();
@@ -97,11 +97,13 @@ class _ChatState extends State<ChatScreen> {
   }
   @override Widget build(BuildContext context) => Scaffold(
     appBar:AppBar(title:const Text('✿ Sayuri'),actions: [
-      if(token.isNotEmpty)IconButton(onPressed:createChat,icon:const Icon(Icons.add_comment_outlined))
+      if(token.isNotEmpty)IconButton(onPressed:()=>createChat(),icon:const Icon(Icons.add_comment_outlined))
     ]),
     drawer:token.isEmpty?null:Drawer(child:SafeArea(child:ListView(children:[
       const ListTile(title:Text('История чатов')),
-      for(final c in chats) ListTile(title:Text(c['title']),onTap:() async {
+      ListTile(title:const Text('№01 — Новый чат Саюри'),onTap:() async {await createChat(kind:'sayuri');if(context.mounted)Navigator.pop(context);}),
+      ListTile(title:const Text('№02 — Чат DeepSeek-наставника'),onTap:() async {await createChat(kind:'teacher');if(context.mounted)Navigator.pop(context);}),
+      for(final c in chats) ListTile(title:Text((c['kind']=='teacher'?'№02 · ':'№01 · ')+c['title']),onTap:() async {
         active=c['id']; await loadMessages();
         if(context.mounted)Navigator.pop(context);
       }),
