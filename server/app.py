@@ -24,14 +24,20 @@ from server.knowledge31 import (
     migrate as migrate_knowledge31, knowledge_memories, semantic_search, add_link, list_links,
     detect_conflicts, review_conflict, knowledge_summary, knowledge_context, source_info
 )
+from server.instinct32 import (
+    INSTINCT_VERSION, InstinctOverride, InstinctEvaluate,
+    migrate as migrate_instinct32, effective_instincts, save_override, reset_override,
+    evaluate as evaluate_instincts, context_text as instinct_context_text,
+    summary as instinct_summary, recent_events as instinct_recent_events
+)
 from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = prepare_data_dir(ROOT)
 DB = DATA / "sayuri.sqlite3"
 WEB = ROOT / "web"
-PROJECT_VERSION = "4.9.0"
-CORE_VERSION = "3.1.0"
+PROJECT_VERSION = "4.10.0"
+CORE_VERSION = "3.2.0"
 app = FastAPI(title="Sayuri", version=PROJECT_VERSION)
 allowed_hosts=["127.0.0.1", "localhost", "testserver"] if os.getenv("SAYURI_LOCAL_ACCESS","1")=="1" else [h.strip() for h in os.getenv("SAYURI_ALLOWED_HOSTS","127.0.0.1,localhost").split(",") if h.strip()]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
@@ -84,6 +90,7 @@ with db() as c:
 def stamp(): return int(time.time())
 migrate_memory3(db)
 migrate_knowledge31(db)
+migrate_instinct32(db)
 def hash_pw(salt, secret): return hashlib.pbkdf2_hmac("sha256", secret.encode(), bytes.fromhex(salt), 350000).hex()
 def token_hash(token): return hashlib.sha256(token.encode()).hexdigest()
 def auth(authorization: str | None):
@@ -153,7 +160,7 @@ def health():
     return {
         "status":"ok","version":PROJECT_VERSION,"project_version":PROJECT_VERSION,
         "core_version":CORE_VERSION,"memory_version":MEMORY_VERSION,
-        "knowledge_version":KNOWLEDGE_VERSION,
+        "knowledge_version":KNOWLEDGE_VERSION,"instinct_version":INSTINCT_VERSION,
         "cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL")),
         "mentor_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_TEACHER_MODEL"))
     }
@@ -288,6 +295,20 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         override=persona_data["prompt_templates"]["mode_overrides_ru"].get(mode,"")
         if override: context+="\nАктивный режим: "+override
         context+="\nВыбранная степень личной близости речи: "+pref["intimacy"]+". Это только стиль, не разрешение менять факты или правила."
+    instinct_result=None
+    if kind!="teacher":
+        with db() as c:
+            pending_conflicts=0
+            if memories:
+                conflicts=detect_conflicts(c,user_id=u,memories=memories,now=stamp(),
+                                           project_id=project_id,limit=100)
+                pending_conflicts=sum(1 for item in conflicts if item["status"]=="pending")
+            instinct_result=evaluate_instincts(
+                c,user_id=u,body=InstinctEvaluate(
+                    text=body.text,project_id=project_id,pending_conflicts=pending_conflicts,
+                    operation="conversation"),now=stamp())
+        instinct_context=instinct_context_text(instinct_result)
+        if instinct_context:context+="\n"+instinct_context
     if kind=="teacher":
         context=("Ты DeepSeek — отдельный ИИ-наставник. В этом диалоге пользователь общается с тобой напрямую. "
                  "Sayuri наблюдает за диалогом через локальную историю, но не участвует в ответах. "
@@ -317,7 +338,59 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         if count==2: c.execute("UPDATE chats SET title=? WHERE id=?",(body.text[:65],cid))
     if kind=="teacher" and os.getenv("SAYURI_AUTO_OBSERVE","1").lower() in ("1","true","yes"):
         background_tasks.add_task(observe_teacher_exchange,u,cid,body.text,answer)
-    return {"reply":answer,"message_id":outgoing,"kind":kind}
+    return {
+        "reply":answer,"message_id":outgoing,"kind":kind,
+        "instinct":None if kind=="teacher" else {
+            "version":instinct_result["version"],
+            "level":instinct_result["level"],
+            "requires_confirmation":instinct_result["requires_confirmation"],
+            "needs_verification":instinct_result["needs_verification"],
+            "triggers":[{"id":item["id"],"strength":item["strength"]} for item in instinct_result["triggers"]]
+        }
+    }
+@app.get("/api/instincts")
+def get_instincts(project_id: str | None=None,authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        return {
+            "version":INSTINCT_VERSION,
+            "project_id":project_id,
+            "items":effective_instincts(c,user_id=u,project_id=project_id)
+        }
+
+@app.get("/api/instincts/summary")
+def get_instinct_summary(project_id: str | None=None,authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:return instinct_summary(c,user_id=u,project_id=project_id)
+
+@app.get("/api/instincts/events")
+def get_instinct_events(limit: int=20,authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:return {"version":INSTINCT_VERSION,"items":instinct_recent_events(c,user_id=u,limit=limit)}
+
+@app.put("/api/instincts/{instinct_id}")
+def put_instinct_override(instinct_id:str,body:InstinctOverride,
+                          authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        item=save_override(c,user_id=u,instinct_id=instinct_id,body=body,now=stamp())
+    runtime.event("reasoning","Настройки Инстинкта 3.2 изменены")
+    return item
+
+@app.delete("/api/instincts/{instinct_id}")
+def delete_instinct_override(instinct_id:str,project_id: str | None=None,
+                             authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        item=reset_override(c,user_id=u,instinct_id=instinct_id,project_id=project_id)
+    runtime.event("reasoning","Переопределение Инстинкта 3.2 сброшено")
+    return item
+
+@app.post("/api/instincts/evaluate")
+def evaluate_instinct_api(body:InstinctEvaluate,authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:return evaluate_instincts(c,user_id=u,body=body,now=stamp())
+
 @app.get("/api/memory")
 def list_memory(scope: str | None=None,project_id: str | None=None,
                 status: str | None="active",q: str="",limit: int=200,
