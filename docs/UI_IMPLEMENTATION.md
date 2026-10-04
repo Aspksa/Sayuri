@@ -1,6 +1,6 @@
-# Sayuri Kitsune sidebar — UI contract v1.0
+# Sayuri Kitsune — исходный контракт меню и развитие интерфейса
 
-Источник требований: [SAYURI_MENU_UI_SPEC.json](SAYURI_MENU_UI_SPEC.json).
+> Примечание: первичная спецификация `v1.0` сохранена для истории. Позже интерфейс обновлён до **3.2**: единый `web/theme.css`, постоянный компаньон `web/companion.js`, установка оригинальных образов в кабинете и русская кнопка выбора ZIP. [Актуальная история и статус](PROJECT_HISTORY_AND_STATUS.md).\n\nИсточник требований: [SAYURI_MENU_UI_SPEC.json](SAYURI_MENU_UI_SPEC.json).
 Разметка: `web/index.html`; навигация, взаимодействие и телеметрия:
 `web/sidebar.js`; backend: `server/runtime.py` и `server/app.py`.
 
