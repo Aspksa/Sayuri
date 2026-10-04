@@ -102,9 +102,10 @@ def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
         return {
             "project_version": info.get("project_version", info.get("ui_version", "неизвестно")),
             "ui_version": info.get("ui_version", "неизвестно"),
-            "core_version": info.get("core_version", "3.1.0"),
+            "core_version": info.get("core_version", "3.2.0"),
             "memory_version": info.get("memory_version", "3.0.0"),
             "knowledge_version": info.get("knowledge_version", "3.1.0"),
+            "instinct_version": info.get("instinct_version", "3.2.0"),
             "persona_version": info.get("persona_version", "2.0.0"),
             "running_folder": str(app_root),
             "installation": "git" if (app_root / ".git").exists() else "zip",
