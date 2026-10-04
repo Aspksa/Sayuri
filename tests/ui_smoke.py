@@ -48,6 +48,12 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
+                        installer=page.locator("#foxInstall")
+                        assert installer.is_visible(),("Installer hidden",width)
+                        assert page.locator("#foxPackUpload").count()==1,width
+                        assert page.locator("#foxPortraitUpload").count()==1,width
+                        assert page.locator("#foxFullUpload").count()==1,width
+                        assert page.locator("#foxInstall").evaluate("(e)=>e.compareDocumentPosition(document.querySelector('#characterBlock')) & Node.DOCUMENT_POSITION_FOLLOWING"),width
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
                         bg=page.evaluate("getComputedStyle(document.documentElement).backgroundColor")
