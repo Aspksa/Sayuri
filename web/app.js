@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s);let token=sessionStorage.getItem('sayuri_token')||'',chats=[],active=null,busy=false;
 async function api(path,method='GET',data=null){const opts={method,headers:{}};if(token)opts.headers.Authorization='Bearer '+token;if(data!==null){if(data instanceof FormData)opts.body=data;else{opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}}const r=await fetch('/api'+path,opts);let result;try{result=await r.json()}catch{result={}}if(!r.ok){const message=Array.isArray(result.detail)?result.detail.map(x=>x.msg||x.type).join('; '):result.detail;throw Error(message||'Ошибка '+r.status)}return result}
 function fail(e){$('#error').textContent=e.message||String(e)}
-function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=id==='account'?'Личный кабинет Саюри':id==='files'?'Документы':'Саюри · общий чат';document.body.classList.remove('open');if(id==='account')account();if(id==='files')files()}
+function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=({account:'Личный кабинет Sayuri',files:'Документы',work:'Рабочие проекты',home:'Домашние проекты',chat:'Саюри · общий чат'})[id]||'Sayuri';document.body.classList.remove('open');if(id==='account')account();if(id==='files')files();if(id==='work'||id==='home')showProject(id)}
 async function refresh(){
   chats=await api('/chats');
   // Preserve existing records, but only the one mentor conversation is visible.
@@ -18,7 +18,7 @@ async function refresh(){
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
 async function account(){loadCloudSettings();loadPreferences();drawCandidates();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
-async function files(){await projectRoot();try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
+async function files(){try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
   const row=document.createElement('div');row.className='line';
   const name=document.createElement('span');name.textContent='📎 '+f.name;
   const del=document.createElement('button');del.textContent='Удалить';
@@ -29,30 +29,38 @@ async function files(){await projectRoot();try{const list=await api('/documents'
   row.append(name,del);box.append(row)
 }}catch(e){fail(e)}}
 
-async function projectRoot(){
-  const target=$('#projects');if(!target)return;target.replaceChildren();
+
+async function showProject(category,relative=''){
+  const target=$(category==='work'?'#workBrowser':'#homeBrowser');
+  target.replaceChildren();
   try{
-    const result=await api('/projects');
-    if(!result.root_configured){target.textContent='Укажите SAYURI_PROJECTS_DIR в закрытом файле .env для разрешённого доступа.';return}
-    for(const category of result.categories){
-      const b=document.createElement('button');b.textContent=category.name+(category.available?'':' — отсутствует');
-      b.disabled=!category.available;b.onclick=()=>projectBrowse(category.id,'',category.name);target.append(b);
+    const root=await api('/projects');
+    const actual=root.categories.find(x=>x.id===category);
+    if(!actual||!actual.available){target.textContent='Папка проекта недоступна';return}
+    const location=document.createElement('p');location.className='hint';
+    location.textContent='Путь: '+root.root+' / '+actual.name;
+    target.append(location);
+    if(relative){
+      const back=document.createElement('button');
+      back.textContent='← Назад';
+      const path=relative.split('/').slice(0,-1).join('/');
+      back.onclick=()=>showProject(category,path);
+      target.append(back);
     }
-  }catch(e){target.textContent=e.message}
-}
-async function projectBrowse(category,relative,title){
-  const target=$('#projects');target.replaceChildren();
-  const back=document.createElement('button');back.textContent='← Разделы';back.onclick=projectRoot;target.append(back);
-  const name=document.createElement('h4');name.textContent=title+(relative?' / '+relative:'');target.append(name);
-  try{
-    const result=await api('/projects/'+category+'/list?path='+encodeURIComponent(relative));
-    for(const entry of result.items){
-      const b=document.createElement('button');b.style.display='block';b.style.margin='7px 0';
-      b.textContent=(entry.is_dir?'📁 ':'📄 ')+entry.name;target.append(b);
-      if(entry.is_dir)b.onclick=()=>projectBrowse(category,entry.relative,title);
-      else b.onclick=()=>projectDownload(category,entry.relative,entry.name);
+    const data=await api('/projects/'+category+'/list?path='+encodeURIComponent(relative));
+    if(!data.items.length){
+      const empty=document.createElement('p');empty.textContent='Папка пуста.';
+      target.append(empty);
     }
-  }catch(e){const p=document.createElement('p');p.textContent=e.message;target.append(p)}
+    for(const item of data.items){
+      const btn=document.createElement('button');
+      btn.style.display='block';btn.style.textAlign='left';btn.style.margin='7px 0';btn.style.width='100%';
+      btn.textContent=(item.is_dir?'📁 ':'📄 ')+item.name;
+      if(item.is_dir)btn.onclick=()=>showProject(category,item.relative);
+      else btn.onclick=()=>projectDownload(category,item.relative,item.name);
+      target.append(btn);
+    }
+  }catch(e){const warning=document.createElement('p');warning.textContent=e.message;target.append(warning)}
 }
 async function projectDownload(category,path,name){
   try{
@@ -101,7 +109,7 @@ $('#datasetPreview').onclick=async()=>{
 };
 
 $('#menu').onclick=()=>document.body.classList.toggle('open');
-$('#showChat').onclick=()=>view('chat');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
+$('#showChat').onclick=()=>view('chat');$('#showWork').onclick=()=>view('work');$('#showHome').onclick=()=>view('home');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
 
 $('#memoryForm').onsubmit=async e=>{e.preventDefault();try{await api('/memory','POST',{text:$('#fact').value});$('#fact').value='';account()}catch(x){fail(x)}};
@@ -194,4 +202,28 @@ $('#testCloud').onclick=async()=>{
     $('#cloudSaveStatus').textContent='Cloud.ru доступен: '+data.models.length+' моделей. '+
       (target?(match?'Модель наставника найдена.':'Указанная модель наставника не найдена: проверьте её точный ID.'):'Выберите ID наставника из доступных моделей.');
   }catch(e){$('#cloudSaveStatus').textContent='Подключение не подтверждено: '+e.message}
+};
+
+async function checkGithubUpdate(){
+  const status=$('#updateStatus');
+  $('#installUpdate').disabled=true;
+  status.textContent='Проверка главной ветки GitHub…';
+  try{
+    const data=await api('/updates/status');
+    if(data.supported===false){status.textContent=data.reason;return}
+    status.textContent='Установлено: '+data.local+' · GitHub: '+data.latest+
+      (data.update_available?' · Доступно обновление':' · Последняя версия')+
+      (!data.clean?' · Найдены локальные изменения':'');
+    $('#installUpdate').disabled=!data.update_available||!data.clean;
+  }catch(e){status.textContent='Проверка не удалась: '+e.message}
+}
+$('#checkUpdate').onclick=checkGithubUpdate;
+$('#installUpdate').onclick=async()=>{
+  if(!confirm('Обновить программу из Aspksa/Sayuri? Будет создана резервная копия базы и вложений. После обновления необходимо перезапустить Sayuri.bat.'))return;
+  $('#installUpdate').disabled=true;
+  $('#updateStatus').textContent='Создание резервной копии и загрузка обновления…';
+  try{
+    const r=await api('/updates/apply','POST',{confirm:true});
+    $('#updateStatus').textContent=r.updated?'Обновление установлено. Закройте Sayuri и запустите Sayuri.bat заново.':'Уже установлена последняя версия.';
+  }catch(e){$('#updateStatus').textContent='Обновление отменено: '+e.message}
 };
