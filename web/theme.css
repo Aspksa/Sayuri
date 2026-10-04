@@ -50,7 +50,7 @@ p{margin:8px 0 14px}
 #collapseSidebar:hover{color:var(--pink)}
 #sayuriSidebar .sidebar-scroller{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:32px 1px 12px;
  scrollbar-width:thin;scrollbar-color:#585166 transparent;overscroll-behavior:contain}
-.nav-pinned{position:sticky;top:-32px;z-index:3;background:var(--sidebar);padding:8px 0 14px;
+.nav-pinned{position:sticky;top:0;z-index:3;background:var(--sidebar);padding:8px 0 14px;
  border-bottom:1px solid #ffffff16;box-shadow:0 8px 12px #1d1e2b9e}
 .nav-pinned .sidebar-section-title{margin-top:3px}
 .diagnostics-body{padding-top:12px}
