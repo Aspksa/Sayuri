@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s);let token=sessionStorage.getItem('sayuri_token')||'',chats=[],active=null,busy=false;
 async function api(path,method='GET',data=null){const opts={method,headers:{}};if(token)opts.headers.Authorization='Bearer '+token;if(data!==null){if(data instanceof FormData)opts.body=data;else{opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}}const r=await fetch('/api'+path,opts);let result;try{result=await r.json()}catch{result={}}if(!r.ok){const message=Array.isArray(result.detail)?result.detail.map(x=>x.msg||x.type).join('; '):result.detail;throw Error(message||'Ошибка '+r.status)}return result}
 function fail(e){$('#error').textContent=e.message||String(e)}
-function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=({account:'Личный кабинет Sayuri',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Саюри · общий чат'})[id]||'Sayuri';document.body.classList.remove('open');if(id==='account')account();if(id==='files'){files();loadDrive()}if(id==='work'||id==='home')showProject(id)}
+function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=({account:'Личный кабинет Sayuri',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Саюри · общий чат'})[id]||'Sayuri';if(id==='account')account();if(id==='files'){files();loadDrive()}if(id==='work'||id==='home')showProject(id)}
 async function refresh(){
   chats=await api('/chats');
   // Preserve existing records, but only the one mentor conversation is visible.
