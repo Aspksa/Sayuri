@@ -665,3 +665,92 @@ body.sidebar-collapsed #sayuriSidebar #showBeyond .beyond-menu-sigil{display:inl
  .folder-icon-options{grid-template-columns:repeat(3,minmax(0,1fr))}
  .documents-current-folder-icon{width:40px;height:40px;min-width:40px}
 }
+
+
+/* SAYURI 4.8.0 — Memory 3.0 cabinet. */
+.memory3-section{
+ display:grid;gap:14px;padding:18px;border:1px solid #454052;border-radius:18px;
+ background:linear-gradient(145deg,#1d1d29,#20202e);scroll-margin-top:18px;
+}
+.memory3-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.memory3-heading h3{margin:4px 0 6px;font-size:20px}
+.memory3-heading .hint{max-width:760px;margin:0}
+.memory3-version{
+ flex:0 0 auto;padding:6px 10px;border:1px solid #76566f;border-radius:999px;
+ background:#332737;color:#efc6df;font-size:10px;font-weight:750;
+}
+.memory3-context{
+ padding:9px 11px;border:1px solid #3d3a48;border-radius:11px;background:#181923;
+ color:#8f8996;font-size:10px;
+}
+.memory3-context.active{border-color:#496657;background:#1b2925;color:#a8cfbd}
+.memory3-form{
+ display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(120px,1fr));gap:10px;
+ padding:13px;border:1px solid #3d3949;border-radius:14px;background:#181923;
+}
+.memory3-form label{display:grid;gap:6px;align-content:start;font-size:10px;color:#b8afbd}
+.memory3-form .memory3-text{grid-row:span 2}
+.memory3-form textarea,.memory3-form input,.memory3-form select{
+ width:100%;min-width:0;border:1px solid #484252;border-radius:10px;background:#252431;color:#eee5ef;
+}
+.memory3-form textarea{min-height:118px;resize:vertical;padding:10px 11px;font:inherit;line-height:1.45}
+.memory3-form input,.memory3-form select{min-height:42px;padding:8px 9px}
+.memory3-submit{
+ grid-column:2/-1;display:flex;align-items:center;gap:10px;justify-content:flex-end;
+}
+.memory3-submit button{
+ min-height:42px;background:#dcaece;color:#2b2030;border-color:#e7bed8;font-weight:750;
+}
+.memory3-submit .hint{margin:0;min-width:0}
+.memory3-filters{
+ display:grid;grid-template-columns:170px 150px minmax(220px,1fr);gap:9px;
+}
+.memory3-filters label{display:grid;gap:5px;font-size:9px;color:#918998}
+.memory3-filters select,.memory3-filters input{
+ width:100%;min-height:38px;border-radius:9px;background:#20202c;border:1px solid #403c49;
+}
+.memory3-list{display:grid;gap:8px}
+.memory3-card{
+ display:grid;gap:8px;padding:12px 13px;border:1px solid #3b3846;border-radius:13px;
+ background:#20202b;box-shadow:inset 3px 0 0 #605b69;
+}
+.memory3-card[data-scope="personal"]{box-shadow:inset 3px 0 0 #c394be}
+.memory3-card[data-scope="project"]{box-shadow:inset 3px 0 0 #86a8df}
+.memory3-card[data-scope="working"]{box-shadow:inset 3px 0 0 #80bda0}
+.memory3-card[data-scope="temporary"]{box-shadow:inset 3px 0 0 #d5b16f}
+.memory3-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.memory3-badges{display:flex;gap:5px;flex-wrap:wrap}
+.memory3-badges span{
+ padding:4px 7px;border-radius:999px;background:#2d2b38;color:#c8bdca;font-size:8px;
+ border:1px solid #45414e;
+}
+.memory3-card-top>small{font-size:9px;color:#83808a}
+.memory3-card-text{margin:0;color:#eee5ef;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.memory3-card-meta{color:#8f8995;font-size:9px;line-height:1.4}
+.memory3-card-actions{display:flex;justify-content:flex-end;gap:6px}
+.memory3-card-actions button{min-height:32px;padding:6px 9px;font-size:9px}
+.memory3-card-actions .danger{color:#e9a2ad;border-color:#64444b;background:#352529}
+.project-memory-bar{
+ display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;padding:9px 10px;
+ border:1px solid #3d4858;border-radius:10px;background:#1b212b;color:#9eacbd;font-size:10px;
+}
+.project-memory-bar button{min-height:34px;padding:6px 9px}
+@media(max-width:1050px){
+ .memory3-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .memory3-form .memory3-text{grid-column:1/-1;grid-row:auto}
+ .memory3-submit{grid-column:1/-1}
+}
+@media(max-width:767px){
+ .memory3-section{padding:13px;border-radius:15px}
+ .memory3-heading{display:grid}
+ .memory3-version{justify-self:start}
+ .memory3-form{grid-template-columns:1fr}
+ .memory3-form .memory3-text,.memory3-submit{grid-column:auto}
+ .memory3-submit{display:grid;justify-content:stretch}
+ .memory3-submit button{width:100%}
+ .memory3-filters{grid-template-columns:1fr}
+ .memory3-card-actions{justify-content:stretch}
+ .memory3-card-actions button{flex:1}
+ .project-memory-bar{align-items:flex-start;flex-direction:column}
+ .project-memory-bar button{width:100%}
+}
