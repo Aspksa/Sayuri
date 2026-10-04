@@ -47,6 +47,32 @@ async function projectDownload(category,path,name){
   }catch(e){fail(e)}
 }
 
+
+$('#reviewChat').onclick=async()=>{
+  const box=$('#suggestions');box.replaceChildren();
+  if(!active){box.textContent='Сначала выберите диалог.';return}
+  box.textContent='Наставник анализирует чат…';
+  try{
+    const result=await api('/learning/review/'+active,'POST');
+    box.replaceChildren();
+    if(!result.suggestions.length){box.textContent='Подтверждённых фактов для памяти не найдено.';return}
+    for(const suggestion of result.suggestions){
+      const row=document.createElement('div');row.className='line';
+      const text=document.createElement('span');text.textContent=suggestion.text;
+      const b=document.createElement('button');b.textContent='Сохранить';
+      b.onclick=async()=>{
+        try{await api('/memory','POST',suggestion);b.disabled=true;b.textContent='Сохранено';account()}
+        catch(e){fail(e)}
+      };
+      row.append(text,b);box.append(row);
+    }
+  }catch(e){box.textContent=e.message}
+};
+$('#datasetPreview').onclick=async()=>{
+  try{const r=await api('/learning/dataset');$('#datasetStats').textContent='Примеров: '+r.samples.length+'. Перед обучением нужна проверка и согласие.'}
+  catch(e){fail(e)}
+};
+
 $('#setup').onclick=()=>sign(true);$('#login').onclick=()=>sign();$('#password').onkeydown=e=>{if(e.key==='Enter')sign()};
 $('#new').onclick=newChat;$('#search').oninput=threads;$('#menu').onclick=()=>document.body.classList.toggle('open');
 $('#showChat').onclick=()=>view('chat');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
