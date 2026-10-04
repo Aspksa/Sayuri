@@ -17,7 +17,7 @@ async function refresh(){
 }
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
-async function account(){loadPreferences();drawCandidates();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
+async function account(){loadCloudSettings();loadPreferences();drawCandidates();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
 async function files(){await projectRoot();try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
   const row=document.createElement('div');row.className='line';
   const name=document.createElement('span');name.textContent='📎 '+f.name;
@@ -152,4 +152,46 @@ $('#saveStyle').onclick=async()=>{
     await api('/preferences','PUT',{mode,intimacy});
     $('#styleStatus').textContent=' Стиль сохранён';
   }catch(e){$('#styleStatus').textContent=e.message}
+};
+
+async function loadCloudSettings(){
+  try{
+    const c=await api('/cloud/config');
+    $('#cloudSetupTitle').textContent=c.status;
+    $('#mentorModel').value=c.mentor_model||'';
+    $('#sayuriModel').value=c.sayuri_model||'';
+    $('#cloudSaveStatus').textContent=c.key_configured?'API-ключ сохранён на сервере. Значение скрыто.':'Ключ ещё не введён.';
+  }catch(e){
+    $('#cloudSaveStatus').textContent=e.message;
+  }
+}
+$('#saveCloud').onclick=async()=>{
+  const key=$('#cloudKey').value.trim();
+  $('#cloudSaveStatus').textContent='Сохраняем в закрытый .env…';
+  try{
+    const result=await api('/cloud/config','PUT',{
+      api_key:key||null,
+      mentor_model:$('#mentorModel').value,
+      sayuri_model:$('#sayuriModel').value
+    });
+    $('#cloudKey').value='';
+    $('#cloudSaveStatus').textContent=result.status+'. Ключ не отображается.';
+    await loadCloudSettings();
+    const h=await api('/health');
+    $('#cloud').textContent=h.mentor_configured?'Наставник подключён':'Наставник: настройте Cloud.ru';
+  }catch(e){$('#cloudSaveStatus').textContent=e.message}
+};
+$('#testCloud').onclick=async()=>{
+  $('#cloudSaveStatus').textContent='Проверяем доступ Cloud.ru и список моделей…';
+  try{
+    const data=await api('/cloud/models');
+    const list=$('#availableCloudModels');list.replaceChildren();
+    for(const id of data.models){
+      const opt=document.createElement('option');opt.value=id;list.append(opt);
+    }
+    const target=$('#mentorModel').value.trim();
+    const match=target && data.models.includes(target);
+    $('#cloudSaveStatus').textContent='Cloud.ru доступен: '+data.models.length+' моделей. '+
+      (target?(match?'Модель наставника найдена.':'Указанная модель наставника не найдена: проверьте её точный ID.'):'Выберите ID наставника из доступных моделей.');
+  }catch(e){$('#cloudSaveStatus').textContent='Подключение не подтверждено: '+e.message}
 };
