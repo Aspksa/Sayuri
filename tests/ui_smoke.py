@@ -145,11 +145,15 @@ def run():
                         assert page.locator("#foxAvatarFrameA").count()==1,width
                         assert page.locator("#foxAvatarFrameB").count()==1,width
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))")
+                        page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="thinking",width
+                        page.wait_for_function("() => document.querySelector('#foxMotionState')?.textContent === 'Размышляет'")
                         assert page.locator("#foxMotionState").inner_text()=="Размышляет",width
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'completed'}}))")
+                        page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'happy'")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="happy",width
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:'files',entity_type:'document',entity_id:'demo'}}))")
+                        page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'reading'")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="reading",width
                         reaction=page.evaluate("window.SayuriReactions.getSnapshot()")
                         assert reaction and reaction["entity_type"]=="document",(width,reaction)
