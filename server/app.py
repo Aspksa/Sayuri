@@ -864,3 +864,7 @@ def development_summary(authorization:str | None=Header(None)):
             "SELECT created FROM chats WHERE user_id=? ORDER BY created DESC LIMIT 15",(owner,)))
     return {"counts":counts,"history":sorted(events,key=lambda x:x["at"],reverse=True)[:24],
             "assessment":"Проверочные задания не запускались; оценка навыков в процентах отсутствует"}
+
+# Optional appearance and companion preferences are private to the owner.
+from server.companion import register_companion_routes
+register_companion_routes(app, auth=auth, db=db, data_root=DATA, stamp=stamp)
