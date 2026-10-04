@@ -14,10 +14,11 @@ def test_running_build_is_private_and_matches_deployed_files():
         response=client.get("/api/build/info",headers=auth)
         assert response.status_code == 200
         info=response.json()
-        assert info["ui_version"] == "4.8.0"
+        assert info["ui_version"] == "4.9.0"
         assert info["persona_version"] == "2.0.0"
-        assert info["project_version"] == "4.8.0"
-        assert info["core_version"] == "3.0.0"
+        assert info["project_version"] == "4.9.0"
+        assert info["core_version"] == "3.1.0"
         assert info["memory_version"] == "3.0.0"
+        assert info["knowledge_version"] == "3.1.0"
         assert (Path(info["running_folder"])/"web"/"index.html").is_file()
         assert info["installation"] in ("zip","git")
