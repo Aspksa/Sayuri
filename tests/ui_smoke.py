@@ -57,6 +57,8 @@ def run():
                             snapshot=ROOT/"ui-previews"/("account-"+str(width)+".png")
                             snapshot.parent.mkdir(exist_ok=True)
                             page.locator("#accountView").screenshot(path=str(snapshot))
+                            if width==1440:
+                                page.screenshot(path=str(ROOT/"ui-previews"/"desktop-overview.png"))
                         
                         assert page.locator("#showUpdates").count()==1,width
                         if width<=767:
