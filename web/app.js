@@ -1,8 +1,15 @@
 const $=s=>document.querySelector(s);let token=sessionStorage.getItem('sayuri_token')||'',chats=[],active=null,busy=false;
 async function api(path,method='GET',data=null){const opts={method,headers:{}};if(token)opts.headers.Authorization='Bearer '+token;if(data!==null){if(data instanceof FormData)opts.body=data;else{opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}}const r=await fetch('/api'+path,opts);let result;try{result=await r.json()}catch{result={}}if(!r.ok){const message=Array.isArray(result.detail)?result.detail.map(x=>x.msg||x.type).join('; '):result.detail;throw Error(message||'Ошибка '+r.status)}return result}
 function fail(e){$('#error').textContent=e.message||String(e)}
-function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=({account:'Личный кабинет Sayuri',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Саюри · общий чат'})[id]||'Sayuri';if(id==='account')account();if(id==='files'){files();loadDrive()}if(id==='work'||id==='home')showProject(id);
-window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'route_changed',module:id}}))}
+function view(id){
+  for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');
+  $('#title').textContent=({account:'Личный кабинет Sayuri',beyond:'SAYURI BEYOND',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Единый чат'})[id]||'Sayuri';
+  if(id==='account')account();
+  if(id==='updates')loadBuildInfo();
+  if(id==='files'){files();loadDrive()}
+  if(id==='work'||id==='home')showProject(id);
+  window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'route_changed',module:id}}));
+}
 async function refresh(){
   chats=await api('/chats');
   // Preserve existing records, but only the one mentor conversation is visible.
@@ -110,6 +117,10 @@ $('#datasetPreview').onclick=async()=>{
   catch(e){fail(e)}
 };
 
+$('#showBeyond').onclick=()=>view('beyond');
+$('#accountOpenBeyond').onclick=()=>view('beyond');
+$('#accountOpenUpdates').onclick=()=>view('updates');
+$('#beyondBackAccount').onclick=()=>view('account');
 $('#showUpdates').onclick=()=>view('updates');$('#showChat').onclick=()=>view('chat');$('#showWork').onclick=()=>view('work');$('#showHome').onclick=()=>view('home');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
 
@@ -379,30 +390,57 @@ $('#driveSearch').oninput=()=>{
  driveTimer=setTimeout(()=>loadDrive(driveCurrent),280);
 };
 
+async function loadBuildInfo(){
+ const info=$('#runningVersion'),folder=$('#runningFolder');
+ try{
+  const data=await api('/build/info');
+  info.textContent='Интерфейс '+data.ui_version+' · Личность '+data.persona_version;
+  folder.textContent=data.running_folder;
+  $('#accountUiVersion').textContent=data.ui_version;
+  $('#runningVersionNote').textContent='Этот путь принадлежит серверу, который сейчас отвечает браузеру. Если вы скачали ZIP в другую папку, дизайн здесь не изменится.';
+ }catch(e){
+  info.textContent='Версия сервера не определена';
+  folder.textContent='Не удалось получить расположение сервера: '+e.message;
+ }
+}
 async function checkGithubUpdate(){
-  const status=$('#updateStatus');
-  $('#installUpdate').disabled=true;
-  status.textContent='Проверка главной ветки GitHub…';
-  try{
-    const data=await api('/updates/status');
-    if(data.supported===false){status.textContent=data.reason;return}
-    status.textContent='Способ: '+(data.mode==='zip'?'ZIP':'Git')+' · Установлено: '+data.local+' · GitHub: '+data.latest+
-      (data.update_available?' · Доступно обновление':' · Последняя версия')+
-      (!data.clean?' · Найдены локальные изменения':'')+
-      (data.mode==='zip'?' · Подготовка в новую папку':'');
-    $('#installUpdate').disabled=!data.update_available||!data.clean;
-    $('#installUpdate').textContent=data.mode==='zip'?'Скачать ZIP-обновление':'Обновить с GitHub';
-  }catch(e){status.textContent='Проверка не удалась: '+e.message}
+ const status=$('#updateStatus');
+ $('#installUpdate').disabled=true;
+ status.textContent='Проверка основной ветки main на GitHub…';
+ await loadBuildInfo();
+ try{
+  const data=await api('/updates/status');
+  if(data.supported===false){status.textContent=data.reason||'Проверка недоступна';return}
+  const mode=data.mode==='zip'?'ZIP':'Git';
+  const installed=data.local==='ZIP (неизвестна)'?'неизвестна (обычный ZIP без метки версии)':data.local;
+  status.textContent='Установка: '+mode+' · Локальная ревизия: '+installed+
+   ' · GitHub: '+data.latest+
+   (data.update_available?' · Доступна подготовка новой версии':' · Ревизии совпадают')+
+   (!data.clean?' · Локальные изменения: обновление недоступно':'');
+  $('#installUpdate').disabled=!data.update_available||!data.clean;
+  $('#installUpdate').textContent=data.mode==='zip'?'Подготовить новую ZIP-папку':'Обновить Git-клон';
+ }catch(e){status.textContent='Проверка не удалась: '+e.message}
 }
 $('#checkUpdate').onclick=checkGithubUpdate;
 $('#installUpdate').onclick=async()=>{
-  if(!confirm('Скачать обновление из Aspksa/Sayuri? Для ZIP будет создана отдельная новая папка с вашей памятью и настройками. Старая версия останется нетронутой.'))return;
-  $('#installUpdate').disabled=true;
-  $('#updateStatus').textContent='Создание резервной копии и загрузка обновления…';
-  try{
-    const r=await api('/updates/apply','POST',{confirm:true});
-    $('#updateStatus').textContent=r.updated?
-      (r.mode==='zip'?'Новая Sayuri готова: '+r.new_folder+' . Закройте старую Sayuri и откройте Sayuri.bat в новой папке.':
-      'Код обновлён. Закройте Sayuri и запустите Sayuri.bat заново.'):'Уже установлена последняя версия.';
-  }catch(e){$('#updateStatus').textContent='Обновление отменено: '+e.message}
+ if(!confirm('Обновление создаст новую папку рядом с текущей. ВНИМАНИЕ: запущенный сервер НЕ заменится автоматически. Продолжить?'))return;
+ $('#installUpdate').disabled=true;
+ $('#updateStatus').textContent='Создаём резервную копию и загружаем новую версию…';
+ try{
+  const r=await api('/updates/apply','POST',{confirm:true});
+  if(r.mode==='zip' && r.updated){
+   const notice=$('#preparedUpdate');
+   notice.hidden=false;
+   notice.replaceChildren();
+   const title=document.createElement('strong');title.textContent='Новая версия скачана, но ещё НЕ запущена.';
+   const path=document.createElement('div');path.className='monospace-path';path.textContent=r.new_folder||'Путь отсутствует';
+   const instructions=document.createElement('p');
+   instructions.textContent='Закройте старое окно Sayuri.bat, откройте папку выше и запустите Sayuri.bat из неё. Проверьте запущенную папку после перезапуска.';
+   notice.append(title,path,instructions);
+   $('#updateStatus').textContent='Архив подготовлен. Дизайн изменится только после запуска новой версии.';
+  }else $('#updateStatus').textContent=r.updated?
+   'Обновление загружено. Закройте Sayuri и перезапустите Sayuri.bat.':
+   'Код уже совпадает с текущей ревизией.';
+ }catch(e){$('#updateStatus').textContent='Обновление не выполнено: '+e.message}
 };
+
