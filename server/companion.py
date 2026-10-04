@@ -25,7 +25,9 @@ ANIMATION_STATES = ("idle", "walk", "think", "read", "work", "happy", "attention
 ANIMATION_FPS = {"idle": 4, "walk": 10, "think": 6, "read": 6, "work": 8,
                  "happy": 10, "attention": 10, "sleep": 3}
 MAX_ANIMATION_PACK_BYTES = 40 * 1024 * 1024
+MAX_ANIMATION_UNPACKED_BYTES = 80 * 1024 * 1024
 MAX_ANIMATION_FRAMES_PER_STATE = 24
+MAX_ANIMATION_TOTAL_FRAMES = 96
 ANIMATION_FRAME_RE = re.compile(r"^[0-9]{3}\.png$")
 
 
@@ -215,6 +217,8 @@ def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
         if len(content) > MAX_ANIMATION_PACK_BYTES:
             raise HTTPException(413, "Пакет анимаций больше 40 МБ")
         frames: dict[str, list[tuple[str, bytes]]] = {}
+        total_frames = 0
+        total_unpacked = 0
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as archive:
                 for item in archive.infolist():
@@ -234,6 +238,12 @@ def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
                     bucket = frames.setdefault(state, [])
                     if len(bucket) >= MAX_ANIMATION_FRAMES_PER_STATE:
                         raise HTTPException(400, "Не больше 24 кадров на одно состояние")
+                    total_frames += 1
+                    total_unpacked += item.file_size
+                    if total_frames > MAX_ANIMATION_TOTAL_FRAMES:
+                        raise HTTPException(400, "В пакете не должно быть больше 96 кадров")
+                    if total_unpacked > MAX_ANIMATION_UNPACKED_BYTES:
+                        raise HTTPException(413, "Распакованный пакет анимаций больше 80 МБ")
                     if item.file_size > MAX_IMAGE_BYTES:
                         raise HTTPException(413, "Один кадр анимации превышает 9 МБ")
                     payload = archive.read(item)
