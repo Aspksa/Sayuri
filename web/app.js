@@ -493,7 +493,11 @@ async function showProject(category,relative=''){
     }
     const data=await api('/projects/'+category+'/list?path='+encodeURIComponent(relative));
     activeProjectMemoryId=data.memory_project_id||actual.memory_project_id||null;
+    document.body.dataset.activeProjectMemoryId=activeProjectMemoryId||'';
     updateMemoryActiveProject();knowledgeContextLabel();updateInstinctProjectContext();
+    window.dispatchEvent(new CustomEvent('sayuri:initiative-check',{detail:{
+      trigger:'project',project_id:activeProjectMemoryId,module:category
+    }}));
     if($('#instinctScopeMode')?.value==='project')loadInstinct32();
     const memoryBar=document.createElement('div');memoryBar.className='project-memory-bar';
     const memoryText=document.createElement('span');memoryText.textContent='Memory 3.0 · '+(activeProjectMemoryId||'контекст не определён');
@@ -1281,14 +1285,16 @@ async function loadBuildInfo(){
  try{
   const data=await api('/build/info');
   const projectVersion=data.project_version||data.ui_version;
-  const coreVersion=data.core_version||'3.4.0',memoryVersion=data.memory_version||'3.0.0',
+  const coreVersion=data.core_version||'3.5.0',memoryVersion=data.memory_version||'3.0.0',
         knowledgeVersion=data.knowledge_version||'3.1.0',instinctVersion=data.instinct_version||'3.2.0',
         teacherUnderstandingVersion=data.teacher_understanding_version||'3.3.0',
         personalityVersion=data.personality_version||data.persona_version||'3.0.0',
+        initiativeVersion=data.initiative_version||'3.5.0',
         personaBaseVersion=data.persona_base_version||'2.0.0';
   info.textContent='Проект '+projectVersion+' · Ядро '+coreVersion+' · Личность '+personalityVersion+
-    ' · Память '+memoryVersion+' · Знания '+knowledgeVersion+' · Инстинкт '+instinctVersion+
-    ' · Понимание учителя '+teacherUnderstandingVersion+' · Интерфейс '+data.ui_version;
+    ' · Инициатива '+initiativeVersion+' · Память '+memoryVersion+' · Знания '+knowledgeVersion+
+    ' · Инстинкт '+instinctVersion+' · Понимание учителя '+teacherUnderstandingVersion+
+    ' · Интерфейс '+data.ui_version;
   folder.textContent=data.running_folder;
   $('#accountUiVersion').textContent=data.ui_version;
   $('#accountProjectVersion').textContent=projectVersion;
@@ -1297,6 +1303,7 @@ async function loadBuildInfo(){
   $('#accountKnowledgeVersion').textContent=knowledgeVersion;
   $('#accountInstinctVersion').textContent=instinctVersion;
   $('#accountPersonalityVersion').textContent=personalityVersion;
+  $('#accountInitiativeVersion').textContent=initiativeVersion;
   $('#accountPersonaBaseVersion').textContent=personaBaseVersion;
   $('#runningVersionNote').textContent='Этот путь принадлежит серверу, который сейчас отвечает браузеру. Если вы скачали ZIP в другую папку, дизайн здесь не изменится.';
  }catch(e){
