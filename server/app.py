@@ -76,7 +76,7 @@ class FeedbackIn(BaseModel):
 def index(): return FileResponse(WEB / "index.html")
 @app.get("/api/health")
 def health():
-    return {"status":"ok","version":"0.1.0","cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL"))}
+    return {"status":"ok","version":"0.1.0","cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL")),"mentor_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_TEACHER_MODEL"))}
 @app.get("/api/auth/state")
 def auth_state():
     with db() as c:
