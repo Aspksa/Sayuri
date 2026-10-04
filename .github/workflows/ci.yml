@@ -25,3 +25,10 @@ jobs:
       - run: python -m pip install -r requirements.txt playwright
       - run: python -m playwright install --with-deps chromium
       - run: python tests/ui_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sayuri-ui-previews
+          path: ui-previews/*.png
+          if-no-files-found: ignore
+          retention-days: 14
