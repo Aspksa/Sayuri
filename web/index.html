@@ -48,7 +48,7 @@
     <button id="showUpdates" title="Обновление проекта"><svg aria-hidden="true" class="ui-icon"><use href="#ico-refresh"></use></svg><span>Обновление проекта</span></button>
     <span class="sidebar-repo">Aspksa / Sayuri · GitHub</span>
   </div>
-</aside><main><header><button id="menu" type="button" aria-label="Открыть меню">☰</button><b id="title">Личный кабинет Саюри</b><span style="flex:1"></span><small id="cloud">Облачная модель</small></header><section class="view" id="chatView"><div class="messages" id="messages"></div><p id="error" class="hint" style="padding:0 18px"></p><form class="compose" id="composer"><textarea id="draft" rows="2" placeholder="Написать наставнику (Sayuri изучает диалог)…"></textarea><button id="send" type="submit" aria-label="Отправить сообщение">➤</button></form></section><section class="view active" id="accountView"><div class="settings cabinet"><h2 class="sr-only">Личный кабинет Sayuri</h2><div class="cabinet-hero">
+</aside><main><header><button id="menu" type="button" aria-label="Открыть меню">☰</button><b id="title">Личный кабинет Саюри</b><span style="flex:1"></span><small id="cloud" title="Статус Cloud.ru">Облачная модель</small></header><section class="view" id="chatView"><div class="messages" id="messages"></div><p id="error" class="hint" style="padding:0 18px"></p><form class="compose" id="composer"><textarea id="draft" rows="2" placeholder="Написать наставнику (Sayuri изучает диалог)…"></textarea><button id="send" type="submit" aria-label="Отправить сообщение">➤</button></form></section><section class="view active" id="accountView"><div class="settings cabinet"><h2 class="sr-only">Личный кабинет Sayuri</h2><div class="cabinet-hero">
   <div class="character-stage" id="characterStage" aria-label="Саюри: анимированный портрет">
     <div class="character-halo"></div>
     <img src="/static/assets/avatar.webp" class="character-portrait" alt="Портрет Саюри">
@@ -59,6 +59,7 @@
     <h2>Здравствуйте, Господин <span class="sakura">✿</span></h2>
     <p id="characterGreeting">Я Саюри. Готова изучать новые знания и бережно хранить нашу историю.</p>
     <div class="hero-actions">
+      <button id="goChat" type="button">✦ Открыть чат</button>
       <button id="greetSayuri" type="button">✿ Приветствие</button>
       <button id="speechToggle" type="button" aria-pressed="false">♫ Голос выключен</button>
       <button id="reduceMotion" type="button" aria-pressed="false">◌ Без анимации</button>
