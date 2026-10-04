@@ -37,6 +37,15 @@ def test_direct_mentor_chat_and_observation(monkeypatch):
         assert all(model=="test-deepseek-mentor" for _,model in calls)
         messages=client.get("/api/chats/"+cid+"/messages",headers=h).json()
         assert [m["role"] for m in messages]==["user","assistant"]
+        personality_before=client.get("/api/personality",headers=h).json()
+        mentor_feedback=client.post("/api/feedback",headers=h,json={
+            "message_id":messages[-1]["id"],"rating":-1,
+            "correction":"Отвечай короче и без шуток."
+        })
+        assert mentor_feedback.status_code==200
+        assert mentor_feedback.json()["personality_signals"]==[]
+        personality_after=client.get("/api/personality",headers=h).json()
+        assert personality_after["recent_evidence"]==personality_before["recent_evidence"]
         candidates=client.get("/api/learning/candidates",headers=h).json()
         assert any(c["text"]=="Пользователь предпочитает короткие ответы." for c in candidates)
         assert client.get("/api/memory",headers=h).json()==before
