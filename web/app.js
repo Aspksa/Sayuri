@@ -120,6 +120,7 @@ $('#datasetPreview').onclick=async()=>{
 $('#showBeyond').onclick=()=>view('beyond');
 $('#accountOpenBeyond').onclick=()=>view('beyond');
 $('#accountOpenUpdates').onclick=()=>view('updates');
+$('#updatesBackCabinet').onclick=()=>view('account');
 $('#beyondBackAccount').onclick=()=>view('account');
 $('#showUpdates').onclick=()=>view('updates');$('#showChat').onclick=()=>view('chat');$('#showWork').onclick=()=>view('work');$('#showHome').onclick=()=>view('home');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
