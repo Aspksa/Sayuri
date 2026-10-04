@@ -48,34 +48,28 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.1.0",width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
                             page.locator("#accountView").screenshot(path=str(folder/("account-"+str(width)+".png")))
                         page.locator("#accountOpenBeyond").click()
-                        installer=page.locator("#foxInstall")
-                        assert installer.is_visible(),("Installer hidden",width)
+                        assert page.locator("#beyondView").is_visible(),width
+                        assert page.locator("#foxSettingsOpen").is_visible(),width
+                        assert not page.locator("#foxContextMenu").is_visible(),width
+                        page.locator("#foxSettingsOpen").click()
+                        assert page.locator("#foxContextMenu").is_visible(),width
                         assert page.locator("#foxPackUpload").count()==1,width
                         assert page.locator("#foxPortraitUpload").count()==1,width
                         assert page.locator("#foxFullUpload").count()==1,width
-                        assert page.locator("#foxInstall").evaluate("(e)=>document.querySelector('#characterBlock').contains(e)"),width
-                        if not page.locator("#foxJumpInstall").is_visible():
-                            print("BEYOND_DIAG",width,page.locator("#foxJumpInstall").evaluate(
-                                "(e)=>({parent:e.parentElement?.outerHTML.slice(0,250),rect:e.getBoundingClientRect().toJSON(),css:getComputedStyle(e).display,view:e.closest('.view')?.id})"))
-                            folder=ROOT/"ui-previews"
-                            folder.mkdir(exist_ok=True)
-                            page.screenshot(path=str(folder/("beyond-debug-"+str(width)+".png")))
-                        assert page.locator("#foxJumpInstall").is_visible(),width
                         assert page.locator("#foxPickPack").is_visible(),width
                         assert page.locator("#foxPickPack").inner_text().startswith("↑ Выбрать ZIP"),width
+                        assert page.locator("#foxScale").is_visible(),width
                         page.locator("#foxResetPosition").click()
                         reset_fox=page.locator("#foxAvatar").bounding_box()
                         assert reset_fox and reset_fox["x"] > width/2,(width,reset_fox)
-                        assert page.locator("#beyondView").is_visible(),width
-                        page.locator("#foxJumpInstall").click()
-                        assert page.evaluate("document.activeElement.id")=="foxPackUpload",width
-                        assert page.locator("#foxInstall").is_visible(),width
+                        page.locator("#foxSettingsClose").click()
+                        assert not page.locator("#foxContextMenu").is_visible(),width
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
                         bg=page.evaluate("getComputedStyle(document.documentElement).backgroundColor")
@@ -84,7 +78,7 @@ def run():
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
-                            page.locator("#characterBlock").screenshot(path=str(folder/("character-install-"+str(width)+".png")))
+                            page.locator("#beyondView").screenshot(path=str(folder/("character-settings-entry-"+str(width)+".png")))
                         if width in (390,1440):
                             snapshot=ROOT/"ui-previews"/("beyond-"+str(width)+".png")
                             snapshot.parent.mkdir(exist_ok=True)
@@ -96,7 +90,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.0.1')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.1.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
