@@ -5,9 +5,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
-from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,7 @@ DB = DATA / "sayuri.sqlite3"
 PERSONA = ROOT / "config" / "persona" / "SAYURI_PERSONA_RU_v1.0.0.json"
 WEB = ROOT / "web"
 app = FastAPI(title="Sayuri", version="0.1.0")
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
 app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 
 @contextmanager
@@ -77,6 +79,31 @@ def index(): return FileResponse(WEB / "index.html")
 @app.get("/api/health")
 def health():
     return {"status":"ok","version":"0.1.0","cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL")),"mentor_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_TEACHER_MODEL"))}
+@app.post("/api/auth/local")
+def local_session(request: Request):
+    """Explicit opt-in, loopback-only owner session for the local Windows UI."""
+    hostname=request.url.hostname
+    remote=request.client.host if request.client else ""
+    host_header=request.headers.get("host","").split(":")[0].lower()
+    origin=request.headers.get("origin")
+    fetch_site=request.headers.get("sec-fetch-site")
+    if (os.getenv("SAYURI_LOCAL_ACCESS","1")!="1" or
+        remote not in ("127.0.0.1","::1") or
+        hostname not in ("127.0.0.1","localhost") or
+        host_header not in ("127.0.0.1","localhost") or
+        (origin and origin.rstrip("/") not in ("http://127.0.0.1:8765","http://localhost:8765")) or
+        fetch_site=="cross-site"):
+        raise HTTPException(403,"Локальный вход доступен только с этого компьютера")
+    with db() as c:
+        # Existing user data are preserved: do not overwrite owner password or memory.
+        if not c.execute("SELECT 1 FROM users WHERE id='owner'").fetchone():
+            salt=secrets.token_hex(16)
+            generated=secrets.token_urlsafe(48)
+            c.execute("INSERT INTO users VALUES (?,?,?)",("owner",salt,hash_pw(salt,generated)))
+        key=secrets.token_urlsafe(40)
+        c.execute("INSERT INTO tokens VALUES (?,?,?)",(token_hash(key),"owner",stamp()+86400))
+    return {"token":key,"expires_in":86400,"local":True}
+
 @app.get("/api/auth/state")
 def auth_state():
     with db() as c:
