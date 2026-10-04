@@ -1,4 +1,4 @@
-"""BEYOND 2.0 companion: owner auth, private assets and no invented state."""
+"""BEYOND companion: private assets, settings and animation packs."""
 from __future__ import annotations
 import io
 import zipfile
@@ -65,6 +65,35 @@ def test_companion_settings_and_uploaded_images(tmp_path,monkeypatch):
         assert c.post("/api/companion/image/portrait",headers=h,
                  files={"image":("fake.png",b"<script>alert(1)</script>","image/png")}).status_code==413
         assert c.get("/api/companion/image/../../data/sayuri.sqlite3",headers=h).status_code in (404,400)
+
+
+def test_animation_pack_is_private_validated_and_readable(tmp_path,monkeypatch):
+    monkeypatch.setattr(companion,"animation_root",lambda root,owner:tmp_path/(owner+"-animation"))
+    archive=io.BytesIO()
+    with zipfile.ZipFile(archive,"w") as z:
+        z.writestr("idle/001.png",png())
+        z.writestr("idle/002.png",png())
+        z.writestr("walk/001.png",png(300,400))
+        z.writestr("README.txt","Sayuri animation frames")
+    with TestClient(service.app,base_url="http://127.0.0.1:8765",
+                    client=("127.0.0.1",35603)) as c:
+        assert c.post("/api/companion/animation-pack",
+            files={"pack":("animation.zip",archive.getvalue(),"application/zip")}).status_code==401
+        h=get_headers(c)
+        res=c.post("/api/companion/animation-pack",headers=h,
+            files={"pack":("animation.zip",archive.getvalue(),"application/zip")})
+        assert res.status_code==200,res.text
+        data=res.json()
+        assert data["installed"] is True
+        assert data["states"]["idle"]["frames"]==2
+        assert data["states"]["walk"]["frames"]==1
+        frame=c.get("/api/companion/animation/idle/1",headers=h)
+        assert frame.status_code==200 and frame.content==png()
+        bad=io.BytesIO()
+        with zipfile.ZipFile(bad,"w") as z:
+            z.writestr("../idle/001.png",png())
+        assert c.post("/api/companion/animation-pack",headers=h,
+            files={"pack":("bad.zip",bad.getvalue(),"application/zip")}).status_code==400
 
 
 def test_png_validation_rejects_unsafe_sizes():
