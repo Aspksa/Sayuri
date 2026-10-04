@@ -21,7 +21,7 @@ from server.memory3 import (
 )
 from server.knowledge31 import (
     KNOWLEDGE_VERSION, KnowledgeLinkCreate, ConflictReview,
-    migrate as migrate_knowledge31, semantic_search, add_link, list_links,
+    migrate as migrate_knowledge31, knowledge_memories, semantic_search, add_link, list_links,
     detect_conflicts, review_conflict, knowledge_summary, knowledge_context, source_info
 )
 from dotenv import set_key
@@ -415,7 +415,7 @@ def delete_memory(mid:str, authorization: str | None = Header(None)):
 def get_knowledge_summary(project_id: str | None=None,authorization: str | None=Header(None)):
     u=auth(authorization);now=stamp();project_id=normalize_project_id(project_id)
     with db() as c:
-        memories=context_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
+        memories=knowledge_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
         return knowledge_summary(c,user_id=u,memories=memories,now=now)
 
 @app.get("/api/knowledge/search")
@@ -424,7 +424,7 @@ def knowledge_search(q: str,project_id: str | None=None,limit: int=20,
     u=auth(authorization);now=stamp();project_id=normalize_project_id(project_id)
     if not q.strip():return {"version":KNOWLEDGE_VERSION,"query":"","items":[]}
     with db() as c:
-        memories=context_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
+        memories=knowledge_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
         items=semantic_search(c,user_id=u,memories=memories,query=q,now=now,
                               project_id=project_id,limit=limit)
     return {"version":KNOWLEDGE_VERSION,"query":q.strip(),"project_id":project_id,"items":items}
@@ -453,7 +453,7 @@ def knowledge_conflicts(project_id: str | None=None,status: str | None=None,
                         authorization: str | None=Header(None)):
     u=auth(authorization);now=stamp();project_id=normalize_project_id(project_id)
     with db() as c:
-        memories=context_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
+        memories=knowledge_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
         items=detect_conflicts(c,user_id=u,memories=memories,now=now,project_id=project_id,limit=250)
     if status:items=[item for item in items if item["status"]==status]
     return {"version":KNOWLEDGE_VERSION,"project_id":project_id,"items":items}
@@ -469,7 +469,7 @@ def set_conflict_review(conflict_key:str,body:ConflictReview,authorization: str 
 def knowledge_sources(project_id: str | None=None,authorization: str | None=Header(None)):
     u=auth(authorization);project_id=normalize_project_id(project_id)
     with db() as c:
-        memories=context_memories(c,user_id=u,now=stamp(),project_id=project_id,limit=500)
+        memories=knowledge_memories(c,user_id=u,now=stamp(),project_id=project_id,limit=500)
     grouped={}
     for memory in memories:
         info=source_info(memory);key=info["kind"]+"|"+str(info.get("ref") or info["title"])
