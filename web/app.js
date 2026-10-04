@@ -8,7 +8,7 @@ async function refresh(){chats=await api('/chats');if(!chats.some(c=>c.id===acti
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Здравствуйте, Господин. Создайте чат, чтобы начать беседу.';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Саюри';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function newChat(){try{const c=await api('/chats','POST',{title:'Новый чат'});active=c.id;await refresh();view('chat')}catch(e){fail(e)}}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Саюри отвечает…';try{if(!active){const c=await api('/chats','POST',{title:'Новый чат'});active=c.id}await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
-async function account(){try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
+async function account(){drawCandidates();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
 async function files(){await projectRoot();try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){const div=document.createElement('p');div.textContent='📎 '+f.name;box.append(div)}}catch(e){fail(e)}}
 
 async function projectRoot(){
@@ -48,25 +48,34 @@ async function projectDownload(category,path,name){
 }
 
 
-$('#reviewChat').onclick=async()=>{
+async function drawCandidates(){
   const box=$('#suggestions');box.replaceChildren();
-  if(!active){box.textContent='Сначала выберите диалог.';return}
-  box.textContent='Наставник анализирует чат…';
   try{
-    const result=await api('/learning/review/'+active,'POST');
-    box.replaceChildren();
-    if(!result.suggestions.length){box.textContent='Подтверждённых фактов для памяти не найдено.';return}
-    for(const suggestion of result.suggestions){
+    const candidates=await api('/learning/candidates');
+    if(!candidates.length){box.textContent='Пока нет предложений для подтверждения.';return}
+    for(const c of candidates){
       const row=document.createElement('div');row.className='line';
-      const text=document.createElement('span');text.textContent=suggestion.text;
-      const b=document.createElement('button');b.textContent='Сохранить';
-      b.onclick=async()=>{
-        try{await api('/memory','POST',suggestion);b.disabled=true;b.textContent='Сохранено';account()}
+      const text=document.createElement('span');text.textContent=c.text;
+      const approve=document.createElement('button');approve.textContent='Запомнить';
+      approve.onclick=async()=>{
+        try{await api('/learning/candidates/'+c.id+'/approve','POST');await drawCandidates();await account()}
         catch(e){fail(e)}
       };
-      row.append(text,b);box.append(row);
+      const reject=document.createElement('button');reject.textContent='Отклонить';
+      reject.onclick=async()=>{
+        try{await api('/learning/candidates/'+c.id+'/reject','POST');await drawCandidates()}
+        catch(e){fail(e)}
+      };
+      row.append(text,approve,reject);box.append(row);
     }
   }catch(e){box.textContent=e.message}
+}
+$('#reviewChat').onclick=async()=>{
+  const box=$('#suggestions');
+  if(!active){box.textContent='Сначала выберите диалог.';return}
+  box.textContent='ИИ-наставник анализирует выбранный чат…';
+  try{await api('/learning/analyze/'+active,'POST');await drawCandidates()}
+  catch(e){box.textContent=e.message}
 };
 $('#datasetPreview').onclick=async()=>{
   try{const r=await api('/learning/dataset');$('#datasetStats').textContent='Примеров: '+r.samples.length+'. Перед обучением нужна проверка и согласие.'}
