@@ -86,12 +86,24 @@ def run():
                             folder.mkdir(exist_ok=True)
                             page.locator("#characterBlock").screenshot(path=str(folder/("character-install-"+str(width)+".png")))
                         if width in (390,1440):
-                            snapshot=ROOT/"ui-previews"/("account-"+str(width)+".png")
+                            snapshot=ROOT/"ui-previews"/("beyond-"+str(width)+".png")
                             snapshot.parent.mkdir(exist_ok=True)
                             page.locator("#beyondView").screenshot(path=str(snapshot))
                             if width==1440:
                                 page.screenshot(path=str(ROOT/"ui-previews"/"desktop-overview.png"))
                         
+                        page.locator("#beyondBackAccount").click()
+                        assert page.locator("#accountView").is_visible(),width
+                        page.locator("#accountOpenUpdates").click()
+                        assert page.locator("#updatesView").is_visible(),width
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.0.0')")
+                        assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
+                        assert page.locator("#updatesBackCabinet").is_visible(),width
+                        if width in (390,1440):
+                            page.locator("#updatesView").screenshot(
+                                path=str(ROOT/"ui-previews"/("updates-"+str(width)+".png")))
+                        page.locator("#updatesBackCabinet").click()
+                        assert page.locator("#accountView").is_visible(),width
                         assert page.locator("#showUpdates").count()==1,width
                         if width<=767:
                             assert not page.locator("#sayuriSidebar").is_visible() or (
