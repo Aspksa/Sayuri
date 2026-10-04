@@ -222,3 +222,26 @@ body.fox-quiet .fox-shell.fox-autonomous-move{transition:none!important}
 .fox-animation-status strong{font-size:12px;color:#ffd1e8}
 body.fox-quiet .fox-avatar>img{animation:none!important}
 @media(prefers-reduced-motion:reduce){.fox-avatar>img{animation:none!important}}
+
+
+/* SAYURI 4.4 — real frame animation engine. */
+.fox-avatar>img{position:absolute;inset:0;height:100%;width:100%}
+#foxAvatarImage{z-index:1;transition:opacity .16s ease}
+.fox-avatar-frame{z-index:2;opacity:0;object-fit:contain;pointer-events:none;
+ transition:opacity .11s linear;filter:drop-shadow(0 11px 13px #0009)}
+.fox-status{z-index:4}
+.fox-shell.fox-frame-engine #foxAvatarImage{opacity:0}
+.fox-shell.fox-frame-engine .fox-avatar-frame{transform:scaleX(var(--fox-facing))}
+.fox-animation-pack{display:grid;gap:9px;margin-top:14px;padding:14px;
+ border:1px solid #5d4d67;border-radius:13px;background:#211f31}
+.fox-animation-pack>div:first-child{display:grid;gap:3px}
+.fox-animation-pack strong{font-size:13px;color:#ffe0f0}
+.fox-animation-pack span{font-size:11px;color:#c6b8cb}
+#foxPickAnimationPack{width:fit-content;min-height:44px;background:#44364e!important;
+ border:1px solid #806486!important;color:#f7e6f3!important}
+.fox-animation-summary{padding:10px 11px;border-radius:10px;background:#29263a;
+ color:#cfc1d3;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+@media(max-width:767px){#foxPickAnimationPack{width:100%}}
+@media(prefers-reduced-motion:reduce){
+ .fox-avatar-frame{transition:none!important}
+}
