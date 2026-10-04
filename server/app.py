@@ -270,7 +270,16 @@ def documents(authorization: str | None=Header(None)):
 def persona(authorization: str | None=Header(None)):
     auth(authorization)
     p=load_persona()
-    return {"name":p["identity"]["display_name_ru"],"version":p["persona_version"],"modes":[m["name"] for m in p["modes"]]}
+    return {"name":p["identity"]["display_name_ru"],"version":p["persona_version"],
+            "modes":[m["name"] for m in p["modes"]],
+            "sections":len(p),"dialogues":len(p["dialogues"]),
+            "messages":sum(len(d["messages"]) for d in p["dialogues"]),
+            "phrases":sum(len(g["phrases"]) for g in p["phrase_library"]["groups"]),
+            "categories":len(p["phrase_library"]["groups"]),
+            "rules":len(p["behavior_rules"]),
+            "scenarios":len(p["acceptance_scenarios"]),
+            "chapters":len(p["lore_chapters"]["chapters"]),
+            "rituals":len(p["ritual_engine"]["records"])}
 
 
 # Owner-granted read-only project explorer.
