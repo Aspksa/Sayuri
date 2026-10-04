@@ -1,4 +1,5 @@
 """Tests for automatic Teacher Understanding 3.3."""
+import asyncio
 import json
 import sqlite3
 from contextlib import contextmanager
@@ -61,8 +62,7 @@ def test_parse_analysis_never_calls_unclear_lesson_understood():
     assert parsed["clarification_question"].startswith("Пожалуйста, уточните")
 
 
-@pytest.mark.asyncio
-async def test_auto_teacher_learning_understands_after_one_question(tmp_path,monkeypatch):
+def test_auto_teacher_learning_understands_after_one_question(tmp_path,monkeypatch):
     db=_prepare(tmp_path/"teacher.sqlite3")
     monkeypatch.setattr(service,"db",db)
     monkeypatch.setattr(service,"stamp",lambda:100)
@@ -84,9 +84,9 @@ async def test_auto_teacher_learning_understands_after_one_question(tmp_path,mon
             confidence=.94,owner_facts=["Владелец хочет автоматическое обучение у учителя."])
     monkeypatch.setattr(service,"cloud_chat",fake_cloud)
 
-    await service.auto_learn_teacher_exchange(
+    asyncio.run(service.auto_learn_teacher_exchange(
         "owner","teacher-chat","Объясни восстановление задач.",
-        "Нужно сохранять контекст до продолжения.")
+        "Нужно сохранять контекст до продолжения."))
 
     with db() as c:
         lessons=c.execute("SELECT * FROM teacher_lessons").fetchall()
@@ -109,8 +109,7 @@ async def test_auto_teacher_learning_understands_after_one_question(tmp_path,mon
     assert len(sayuri_calls)==2
 
 
-@pytest.mark.asyncio
-async def test_auto_teacher_learning_stops_after_two_clarifications(tmp_path,monkeypatch):
+def test_auto_teacher_learning_stops_after_two_clarifications(tmp_path,monkeypatch):
     db=_prepare(tmp_path/"teacher.sqlite3")
     monkeypatch.setattr(service,"db",db)
     counter={"now":200}
@@ -131,8 +130,8 @@ async def test_auto_teacher_learning_stops_after_two_clarifications(tmp_path,mon
             confidence=.45)
     monkeypatch.setattr(service,"cloud_chat",fake_cloud)
 
-    await service.auto_learn_teacher_exchange(
-        "owner","teacher-chat","Объясни критерий.","Исходное объяснение.")
+    asyncio.run(service.auto_learn_teacher_exchange(
+        "owner","teacher-chat","Объясни критерий.","Исходное объяснение."))
 
     assert counts["teacher"]==teacher33.MAX_CLARIFICATION_ROUNDS
     assert counts["sayuri"]==teacher33.MAX_CLARIFICATION_ROUNDS+1
@@ -144,8 +143,7 @@ async def test_auto_teacher_learning_stops_after_two_clarifications(tmp_path,mon
         assert turns==2
 
 
-@pytest.mark.asyncio
-async def test_auto_teacher_learning_does_not_ask_when_understood(tmp_path,monkeypatch):
+def test_auto_teacher_learning_does_not_ask_when_understood(tmp_path,monkeypatch):
     db=_prepare(tmp_path/"teacher.sqlite3")
     monkeypatch.setattr(service,"db",db)
     monkeypatch.setattr(service,"stamp",lambda:300)
@@ -158,8 +156,8 @@ async def test_auto_teacher_learning_does_not_ask_when_understood(tmp_path,monke
         return _analysis(understood=True,confidence=.97)
     monkeypatch.setattr(service,"cloud_chat",fake_cloud)
 
-    await service.auto_learn_teacher_exchange(
-        "owner","teacher-chat","Что такое граф знаний?","Это система связей между знаниями.")
+    asyncio.run(service.auto_learn_teacher_exchange(
+        "owner","teacher-chat","Что такое граф знаний?","Это система связей между знаниями."))
 
     assert models==["sayuri-model"]
     with db() as c:
