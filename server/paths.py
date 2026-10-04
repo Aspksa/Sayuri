@@ -85,3 +85,17 @@ def ensure_project_folders(root: Path) -> None:
         if candidate.is_symlink() or (candidate.exists() and not candidate.is_dir()):
             raise OSError("Небезопасная папка проекта: " + str(candidate))
         candidate.mkdir(parents=True, exist_ok=True)
+
+
+def prepare_project_root(repo_root: Path) -> Path:
+    """Make scoped project folders, never force creation in a missing OneDrive tree."""
+    wanted = cloud_root()
+    try:
+        ensure_project_folders(wanted)
+        return wanted
+    except OSError:
+        if os.getenv("SAYURI_PROJECTS_DIR", "").strip():
+            raise  # An explicitly configured location must not be silently ignored.
+        fallback = (repo_root / "data" / "projects").resolve()
+        ensure_project_folders(fallback)
+        return fallback
