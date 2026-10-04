@@ -165,11 +165,13 @@ function render(payload){
  statusDot('networkStatusSymbol',n.backend!=='online'?'error':
     n.state==='online'?'good':n.state==='degraded'?'warning':n.state==='offline'?'error':'neutral');
  const netBody=el('networkDetailsBody');netBody.replaceChildren();
- addRow(netBody,'Интернет',netState);
+ addRow(netBody,'Внешняя сеть',netState);
  addRow(netBody,'Backend',n.backend==='online'?'Доступен':'Нет связи');
- addRow(netBody,'Задержка',fmt(n.latency_ms));
+ addRow(netBody,'Отклик сервера',fmt(n.server_latency_ms));
+ addRow(netBody,'Проверка GitHub',fmt(n.latency_ms));
  addRow(netBody,'Успешно',stamp(n.last_success_at));
  addRow(netBody,'Ошибка',n.failure_reason||'Нет');
+ addRow(netBody,'Цель проверки',n.probe_target||'Нет данных');
  addRow(netBody,'SSE',payload.features?.sse?'Поддерживается':'Нет данных');
  const cstate=cloudLabels[c.state]||cloudLabels.unknown;
  el('cloudCompact').textContent=cstate;
