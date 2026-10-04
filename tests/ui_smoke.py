@@ -50,7 +50,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
-                        bg=page.evaluate("getComputedStyle(document.body).backgroundColor")
+                        bg=page.evaluate("getComputedStyle(document.documentElement).backgroundColor")
                         assert bg.startswith("rgb("),bg
                         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
                         if width in (390,1440):
