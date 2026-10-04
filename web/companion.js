@@ -50,6 +50,7 @@
     shell.dataset.mode=settings.mode;
     document.body.classList.toggle("fox-quiet",settings.quiet);
     shell.hidden=!settings.enabled;
+    el("foxVisibility").textContent=settings.enabled?"Скрыть персонажа":"Показать персонажа";
     shell.style.setProperty("--fox-scale",settings.scale);
     el("foxModeCompact").setAttribute("aria-pressed",String(settings.mode==="compact"));
     el("foxModeFloating").setAttribute("aria-pressed",String(settings.mode==="floating"));
@@ -151,7 +152,12 @@
   function message(text){
     if(settings.quiet && !/ошибка|нет связи|недоступн/i.test(text))return;
     panel.hidden=false;
+    panel.style.transform="none";
     el("foxPanelMessage").textContent=text;
+    const box=panel.getBoundingClientRect();
+    const dx=box.left<8?8-box.left:box.right>innerWidth-8?innerWidth-8-box.right:0;
+    const dy=box.top<8?8-box.top:box.bottom>innerHeight-8?innerHeight-8-box.bottom:0;
+    panel.style.transform="translate("+dx+"px,"+dy+"px)";
   }
   function navigate(viewId){
     const button=el(({chat:"showChat",account:"showAccount",files:"showFiles",
@@ -330,6 +336,13 @@
       e.target.value="";
     });
   }
+  el("foxVisibility").addEventListener("click",async()=>{
+    settings.enabled=!settings.enabled;
+    fallbackDimensions();
+    if(!settings.enabled){closeMenu();panel.hidden=true;}
+    else position();
+    await saveSettings();
+  });
   for(const [id,kind] of [["foxModeCompact","compact"],
     ["foxModeFloating","floating"],["foxModeExpanded","expanded"]]){
     el(id).addEventListener("click",()=>chooseMode(kind));
