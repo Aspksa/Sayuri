@@ -76,7 +76,7 @@ window.addEventListener('resize',()=>{
  else document.body.classList.remove('sidebar-collapsed');
 });
 const navIds={
- account:'showAccount',chat:'showChat',work:'showWork',files:'showFiles',
+ account:'showAccount',beyond:'showBeyond',chat:'showChat',work:'showWork',files:'showFiles',
  home:'showHome',updates:'showUpdates'
 };
 function markNav(id){
