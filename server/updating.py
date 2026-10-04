@@ -154,6 +154,8 @@ def _extract_checked(archive: Path, destination: Path, sha: str) -> None:
         for entry in entries:
             full=entry.filename.replace("\\","/")
             pieces=full.rstrip("/").split("/")
+            if len(pieces)==1 and pieces[0]=="Sayuri-"+sha and entry.is_dir():
+                continue
             if len(pieces)<2 or pieces[0] != "Sayuri-"+sha:
                 # Pinned GitHub archives normally use Sayuri-<SHA>.
                 raise UpdateError("Неожиданная структура ZIP")
