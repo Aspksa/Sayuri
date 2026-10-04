@@ -48,7 +48,7 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.7.2",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.7.3",width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -179,7 +179,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.2')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.7.3')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
@@ -217,6 +217,53 @@ def run():
                         assert folder_name in page.locator("#documentsCurrentPath").inner_text(),width
                         page.locator("#documentsParentFolder").click()
                         page.wait_for_function("() => document.querySelector('#documentsCurrentFolder').textContent === 'Мои файлы'")
+                        # Context actions: pin, rename, move and cleanup.
+                        folder_card=page.locator("#driveFiles .drive-file").filter(has_text=folder_name).first
+                        folder_card.locator("button[aria-label^='Действия:']").click()
+                        assert page.locator("#documentsContextMenu").is_visible(),width
+                        page.locator("[data-doc-action='pin']").click()
+                        assert page.locator("#documentsPinned").is_visible(),width
+                        assert folder_name in page.locator("#documentsPinned").inner_text(),width
+                        renamed=folder_name+" Renamed"
+                        folder_card=page.locator("#driveFiles .drive-file").filter(has_text=folder_name).first
+                        folder_card.locator("button[aria-label^='Действия:']").click()
+                        page.locator("[data-doc-action='rename']").click()
+                        assert page.locator("#renameItemDialog").is_visible(),width
+                        page.locator("#renameItemName").fill(renamed)
+                        page.locator("#renameItemSubmit").click()
+                        page.wait_for_function("""name => Array.from(document.querySelectorAll('#driveFiles .drive-file-name'))
+                          .some(node => node.textContent === name)""",arg=renamed)
+                        assert renamed in page.locator("#documentsPinned").inner_text(),width
+                        target_name="Move Target "+str(width)
+                        page.locator("#driveNewFolder").click()
+                        page.locator("#newFolderName").fill(target_name)
+                        page.locator("#newFolderSubmit").click()
+                        page.wait_for_function("""name => Array.from(document.querySelectorAll('#driveFiles .drive-file-name'))
+                          .some(node => node.textContent === name)""",arg=target_name)
+                        renamed_card=page.locator("#driveFiles .drive-file").filter(has_text=renamed).first
+                        renamed_card.locator("button[aria-label^='Действия:']").click()
+                        page.locator("[data-doc-action='move']").click()
+                        assert page.locator("#moveItemDialog").is_visible(),width
+                        page.locator("#moveItemDestination").select_option(label="Мои файлы / "+target_name)
+                        page.locator("#moveItemSubmit").click()
+                        page.wait_for_function("name => !Array.from(document.querySelectorAll('#driveFiles .drive-file-name')).some(node => node.textContent === name)",arg=renamed)
+                        target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
+                        target_card.locator("button").filter(has_text="Открыть").click()
+                        page.wait_for_function("name => document.querySelector('#documentsCurrentFolder').textContent === name",arg=target_name)
+                        assert page.locator("#driveFiles .drive-file").filter(has_text=renamed).count()==1,(width,renamed)
+                        # Delete moved test folder, then its empty destination; this keeps smoke tests repeatable.
+                        moved_card=page.locator("#driveFiles .drive-file").filter(has_text=renamed).first
+                        moved_card.locator("button[aria-label^='Действия:']").click()
+                        page.once("dialog",lambda dialog:dialog.accept())
+                        page.locator("[data-doc-action='delete']").click()
+                        page.wait_for_function("name => !Array.from(document.querySelectorAll('#driveFiles .drive-file-name')).some(node => node.textContent === name)",arg=renamed)
+                        page.locator("#documentsParentFolder").click()
+                        page.wait_for_function("() => document.querySelector('#documentsCurrentFolder').textContent === 'Мои файлы'")
+                        target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
+                        target_card.locator("button[aria-label^='Действия:']").click()
+                        page.once("dialog",lambda dialog:dialog.accept())
+                        page.locator("[data-doc-action='delete']").click()
+                        page.wait_for_function("name => !Array.from(document.querySelectorAll('#driveFiles .drive-file-name')).some(node => node.textContent === name)",arg=target_name)
                         page.locator("#docsListView").click()
                         assert page.locator("#docsListView").get_attribute("aria-pressed")=="true",width
                         assert "drive-list-mode" in (page.locator("#driveFiles").get_attribute("class") or ""),width
