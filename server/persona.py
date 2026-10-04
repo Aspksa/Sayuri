@@ -1,12 +1,14 @@
 """Load the complete user-authored Sayuri 2.0 bundle from versioned source parts."""
 from __future__ import annotations
 import json
+from functools import lru_cache
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 PERSONA_DIR=ROOT/"config"/"persona"
 PARTS=PERSONA_DIR/"v2_parts"
 
+@lru_cache(maxsize=1)
 def load_persona() -> dict:
     files=sorted(PARTS.glob("part_*.txt"))
     if len(files)!=18:
@@ -14,6 +16,9 @@ def load_persona() -> dict:
     raw="".join(path.read_text(encoding="utf-8") for path in files)
     bundle=json.loads(raw)
     if (bundle.get("persona_version")!="2.0.0" or
+        len(bundle)!=55 or
+        len(bundle.get("lore_chapters",{}).get("chapters",[]))!=9 or
+        len(bundle.get("ritual_engine",{}).get("records",[]))!=18 or
         len(bundle.get("dialogues",[]))!=100 or
         len(bundle.get("behavior_rules",[]))!=60 or
         len(bundle.get("acceptance_scenarios",[]))!=60 or
