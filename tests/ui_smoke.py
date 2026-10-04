@@ -46,7 +46,7 @@ def run():
                         # Exactly one coherent stylesheet, no three generations of overrides.
                         assert page.locator('link[href*="theme.css"]').count()==1,width
                         assert page.locator("head style").count()==0,width
-                        page.wait_for_function("!!document.querySelector('link[href*=theme.css]').sheet")
+                        page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
