@@ -101,13 +101,6 @@ def text_hash(text: str) -> str:
 
 
 def ensure_index(c,user_id: str,memories: list[dict],now: int):
-    active_ids={m["id"] for m in memories}
-    if active_ids:
-        marks=",".join("?" for _ in active_ids)
-        c.execute(f"DELETE FROM knowledge_index WHERE user_id=? AND memory_id NOT IN ({marks})",
-                  [user_id,*active_ids])
-    else:
-        c.execute("DELETE FROM knowledge_index WHERE user_id=?",(user_id,))
     rows={r["memory_id"]:dict(r) for r in c.execute(
         "SELECT memory_id,text_hash,vector_json FROM knowledge_index WHERE user_id=?",(user_id,))}
     vectors={}
