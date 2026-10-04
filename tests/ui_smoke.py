@@ -73,6 +73,8 @@ def run():
                             for id in ("sayuriStatusDetails","networkDetails","cloudDetails"):
                                 page.locator("#"+id+" summary").click()
                             foot=page.locator(".sidebar-fixed-bottom").bounding_box()
+                            nav=page.locator("#showChat").bounding_box()
+                            assert nav and nav["y"]<foot["y"],(width,nav,foot)
                             assert foot["y"]+foot["height"]<=903,foot
                             if width==390:
                                 snap=ROOT/"ui-previews"/"mobile-menu.png"
@@ -89,6 +91,8 @@ def run():
                             for id in ("sayuriStatusDetails","networkDetails","cloudDetails"):
                                 page.locator("#"+id+" summary").click()
                             foot=page.locator(".sidebar-fixed-bottom").bounding_box()
+                            nav=page.locator("#showChat").bounding_box()
+                            assert nav and nav["y"]<foot["y"],(width,nav,foot)
                             assert foot["y"]+foot["height"]<=903,foot
                             page.locator("#collapseSidebar").click()
                             page.wait_for_timeout(300)
