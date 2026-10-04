@@ -556,3 +556,112 @@ body.sidebar-collapsed #sayuriSidebar #showBeyond .beyond-menu-sigil{display:inl
  .documents-pin{min-width:max-content;width:auto}
  #documentsPinnedItems{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
 }
+
+
+/* SAYURI 4.7.4 — Folder Identity. */
+.documents-workspace{
+ --folder-violet:#c79ad8;
+ --folder-rose:#e8a0bc;
+ --folder-blue:#8eafea;
+ --folder-cyan:#7bcbd2;
+ --folder-green:#8fc9a6;
+ --folder-amber:#e2bd76;
+ --folder-slate:#9ba2b1;
+}
+.drive-file[data-kind="folder"][data-folder-color]{
+ border-color:color-mix(in srgb,var(--folder-accent) 36%,#3b3848);
+ box-shadow:inset 3px 0 0 color-mix(in srgb,var(--folder-accent) 72%,transparent);
+}
+.drive-file[data-kind="folder"][data-folder-color]:hover{
+ border-color:color-mix(in srgb,var(--folder-accent) 72%,#66546b);
+}
+.drive-file[data-kind="folder"] .drive-file-icon{
+ display:grid;place-items:center;width:46px;height:46px;border-radius:13px;
+ background:color-mix(in srgb,var(--folder-accent,#c79ad8) 14%,#272633);
+ border:1px solid color-mix(in srgb,var(--folder-accent,#c79ad8) 30%,#3b3848);
+}
+.drive-file-description{
+ min-height:28px;margin-top:-1px;color:#9b93a0;font-size:10px;line-height:1.4;
+ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.documents-current-folder[data-folder-color]{
+ border-color:color-mix(in srgb,var(--folder-accent) 38%,#3c3948);
+ box-shadow:inset 3px 0 0 color-mix(in srgb,var(--folder-accent) 75%,transparent);
+}
+.documents-current-folder-icon{
+ display:grid;place-items:center;width:42px;height:42px;min-width:42px;border-radius:12px;
+ background:color-mix(in srgb,var(--folder-accent,#9ba2b1) 16%,#292833);
+ border:1px solid color-mix(in srgb,var(--folder-accent,#9ba2b1) 34%,#464151);
+ font-size:20px;
+}
+#documentsCurrentDescription{
+ margin:2px 0 0;color:#b3a9b6;font-size:10px;line-height:1.4;white-space:normal;
+}
+.documents-folder-summary{
+ display:flex;gap:7px;margin:-1px 0 8px;padding-left:2px;flex-wrap:wrap;
+}
+.documents-folder-summary span{
+ padding:5px 8px;border:1px solid #393644;border-radius:999px;background:#1b1c26;
+ color:#8f8997;font-size:9px;
+}
+.documents-folder-summary strong{color:#d8ceda}
+.documents-folder-node[data-folder-color]{
+ border-color:color-mix(in srgb,var(--folder-accent) 22%,transparent)!important;
+ box-shadow:inset 2px 0 0 color-mix(in srgb,var(--folder-accent) 65%,transparent);
+}
+.documents-folder-node[data-folder-color].active{
+ background:color-mix(in srgb,var(--folder-accent) 13%,#302837)!important;
+ border-color:color-mix(in srgb,var(--folder-accent) 45%,#58475d)!important;
+}
+.folder-identity-dialog{width:min(94vw,540px)}
+.folder-identity-fieldset{
+ min-width:0;margin:0;padding:0;border:0;display:grid;gap:7px;
+}
+.folder-identity-fieldset legend{
+ padding:0;margin-bottom:3px;font-size:11px;color:#c9bdca;
+}
+.folder-icon-options{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;
+}
+.folder-icon-options button{
+ display:grid!important;place-items:center;gap:3px;min-width:0;min-height:62px!important;
+ padding:8px 5px!important;margin:0!important;border:1px solid #44404e!important;
+ border-radius:11px!important;background:#252431!important;
+}
+.folder-icon-options button>span{font-size:21px;line-height:1}
+.folder-icon-options button>small{
+ max-width:100%;font-size:9px;color:#9f96a3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.folder-icon-options button[aria-pressed="true"]{
+ border-color:#d9a6c8!important;background:#453347!important;
+ box-shadow:0 0 0 1px #d9a6c833 inset;
+}
+.folder-color-options{display:flex;gap:8px;flex-wrap:wrap}
+.folder-color-options button{
+ width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;
+ padding:0!important;margin:0!important;border-radius:50%!important;
+ border:2px solid #272631!important;background:var(--swatch)!important;
+ box-shadow:0 0 0 1px #5a5360;
+}
+.folder-color-options button[aria-pressed="true"]{
+ box-shadow:0 0 0 3px #1c1d29,0 0 0 5px var(--swatch);
+}
+.folder-color-options [data-folder-color="violet"]{--swatch:var(--folder-violet)}
+.folder-color-options [data-folder-color="rose"]{--swatch:var(--folder-rose)}
+.folder-color-options [data-folder-color="blue"]{--swatch:var(--folder-blue)}
+.folder-color-options [data-folder-color="cyan"]{--swatch:var(--folder-cyan)}
+.folder-color-options [data-folder-color="green"]{--swatch:var(--folder-green)}
+.folder-color-options [data-folder-color="amber"]{--swatch:var(--folder-amber)}
+.folder-color-options [data-folder-color="slate"]{--swatch:var(--folder-slate)}
+.folder-identity-dialog textarea{
+ width:100%;min-height:88px;resize:vertical;border:1px solid #4a4454;border-radius:11px;
+ background:#252431;color:#eee5ef;padding:10px 11px;font:inherit;line-height:1.45;
+}
+.folder-identity-counter{
+ margin-top:-8px;text-align:right;color:#807986;font-size:9px;
+}
+.documents-context-menu [data-doc-action="customize"][hidden]{display:none!important}
+@media(max-width:767px){
+ .folder-icon-options{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .documents-current-folder-icon{width:40px;height:40px;min-width:40px}
+}
