@@ -1,15 +1,16 @@
 {
-  "ui_version": "4.12.0",
+  "ui_version": "4.13.0",
   "persona_version": "3.0.0",
   "character_product": "SAYURI BEYOND",
-  "release_notes": "Sayuri Personality 3.0: неизменяемое каноническое ядро личности, ограниченная и объяснимая адаптация стиля только по повторяющейся обратной связи владельца, временные рабочие состояния и защита личности от изменения учителем, документами и внешним контентом.",
+  "release_notes": "Sayuri Initiative 3.5: уместные самостоятельные реплики через BEYOND, продолжение незавершённых тем, реестр обещаний Sayuri, предупреждения о реальных проблемах, помощь по активному проекту, редкая социальная инициатива и адаптация частоты по реакции владельца.",
   "release_date": "2026-10-05",
-  "project_version": "4.12.0",
-  "core_version": "3.4.0",
+  "project_version": "4.13.0",
+  "core_version": "3.5.0",
   "memory_version": "3.0.0",
   "knowledge_version": "3.1.0",
   "instinct_version": "3.2.0",
   "teacher_understanding_version": "3.3.0",
   "personality_version": "3.0.0",
-  "persona_base_version": "2.0.0"
+  "persona_base_version": "2.0.0",
+  "initiative_version": "3.5.0"
 }
