@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.8.0"><link rel="stylesheet" href="/static/companion.css?v=4.8.0"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.9.0"><link rel="stylesheet" href="/static/companion.css?v=4.9.0"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ico-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
 <symbol id="ico-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
 <symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M20 16.6A5 5 0 0 0 17.5 7a7 7 0 0 0-13.2 2.3A4.5 4.5 0 0 0 7.5 18H19a3 3 0 0 0 1-5.7"/></symbol>
@@ -53,11 +53,12 @@
     <span class="kicker">ЦЕНТР УПРАВЛЕНИЯ SAYURI</span>
     <h2>Личный кабинет Sayuri</h2>
     <div class="version-strip">
-      <span><strong>Проект</strong> <b id="accountProjectVersion">4.8.0</b></span>
-      <span><strong>Ядро</strong> <b id="accountCoreVersion">3.0.0</b></span>
+      <span><strong>Проект</strong> <b id="accountProjectVersion">4.9.0</b></span>
+      <span><strong>Ядро</strong> <b id="accountCoreVersion">3.1.0</b></span>
       <span><strong>Память</strong> <b id="accountMemoryVersion">3.0.0</b></span>
+      <span><strong>Знания</strong> <b id="accountKnowledgeVersion">3.1.0</b></span>
       <span><strong>Личность</strong> SAYURI 2.0</span>
-      <span><strong>Интерфейс</strong> <b id="accountUiVersion">4.8.0</b></span>
+      <span><strong>Интерфейс</strong> <b id="accountUiVersion">4.9.0</b></span>
     </div>
     <p class="hint">Здесь находятся ваши знания, опыт, библиотека, история развития и настройки модели. Характер и внешний вид Саюри вынесены в отдельный раздел.</p>
   </div>
@@ -65,7 +66,7 @@
     <button type="button" id="accountOpenBeyond" class="account-action main-action"><strong>✿ SAYURI BEYOND</strong><span>Образ, движения, голос и характер</span><small>Открыть отдельный экран →</small></button>
     <button type="button" data-jump="memoryBlock" class="account-action"><strong>Memory 3.0</strong><span>Личная, проектная, рабочая и временная память</span></button>
     <button type="button" data-jump="skillBlock" class="account-action"><strong>Навыки</strong><span>Фактическая статистика и проверки</span></button>
-    <button type="button" data-jump="libraryBlock" class="account-action"><strong>Библиотека</strong><span>Подтверждённые знания и документы</span></button>
+    <button type="button" data-jump="libraryBlock" class="account-action"><strong>Знания 3.1</strong><span>Смысловой поиск, связи, источники и противоречия</span></button>
     <button type="button" id="accountOpenUpdates" class="account-action"><strong>Обновление</strong><span>Проверка версии и папки запуска</span></button>
   </div>
   <div class="account-quicknav"><button type="button" data-jump="experienceBlock">Опыт</button><button type="button" data-jump="historyBlock">История развития</button><button type="button" data-jump="cloudSetup">Cloud.ru</button></div>
@@ -144,7 +145,59 @@
   <div id="memories" class="memory3-list"></div>
 </section>
 <section id="experienceBlock"><h3>04. Опыт и дневник</h3><div id="experienceSummary" class="metric-grid"></div><div id="experienceJournal" class="journal"></div></section>
-<section id="libraryBlock"><h3>05. Библиотека знаний</h3><p class="hint">Подтверждённые записи памяти, учебный материал персонажа и принятые выводы наставника. Непроверенные сведения не становятся фактами автоматически.</p><input type="search" id="knowledgeSearch" placeholder="Поиск в библиотеке" aria-label="Поиск знаний"><div id="knowledgeLibrary" class="journal"></div></section>
+<section id="libraryBlock" class="knowledge31-section">
+  <div class="knowledge31-heading">
+    <div>
+      <span class="kicker">SAYURI CORE · ЗНАНИЯ 3.1</span>
+      <h3>05. Движок знаний</h3>
+      <p class="hint">Локальный индекс подтверждённой памяти: поиск по похожести текста, граф явных связей, происхождение сведений и кандидаты противоречий. Документы пока не индексируются автоматически — это отдельный следующий этап изучения документов.</p>
+    </div>
+    <span class="knowledge31-version">v3.1.0</span>
+  </div>
+  <div id="knowledgeSummary" class="metric-grid"></div>
+  <div id="knowledgeContext" class="knowledge31-context">Контекст: общие знания</div>
+
+  <div class="knowledge31-searchbar">
+    <label>Смысловой поиск
+      <input type="search" id="knowledgeSearch" placeholder="Например: как Sayuri должна работать с проектной памятью?" aria-label="Смысловой поиск знаний">
+    </label>
+    <button type="button" id="knowledgeSearchButton">Найти</button>
+  </div>
+  <div id="knowledgeSearchStatus" class="hint"></div>
+  <div id="knowledgeLibrary" class="knowledge31-results"></div>
+
+  <div class="knowledge31-columns">
+    <section class="knowledge31-panel">
+      <div class="knowledge31-panel-head"><div><span class="documents-eyebrow">ИСТОЧНИКИ</span><h4>Происхождение знаний</h4></div><span id="knowledgeSourceCount" class="documents-count">0</span></div>
+      <div id="knowledgeSources" class="knowledge31-stack"></div>
+    </section>
+    <section class="knowledge31-panel">
+      <div class="knowledge31-panel-head"><div><span class="documents-eyebrow">ПРОТИВОРЕЧИЯ</span><h4>Требуют проверки</h4></div><span id="knowledgeConflictCount" class="documents-count">0</span></div>
+      <div id="knowledgeConflicts" class="knowledge31-stack"></div>
+    </section>
+  </div>
+
+  <section class="knowledge31-panel knowledge31-links-panel">
+    <div class="knowledge31-panel-head"><div><span class="documents-eyebrow">ГРАФ</span><h4>Связи между знаниями</h4></div><span id="knowledgeLinkCount" class="documents-count">0</span></div>
+    <form id="knowledgeLinkForm" class="knowledge31-link-form">
+      <label>Первая запись<select id="knowledgeLinkLeft"></select></label>
+      <label>Связь
+        <select id="knowledgeLinkRelation">
+          <option value="related">Связано с</option>
+          <option value="supports">Подтверждает</option>
+          <option value="contradicts">Противоречит</option>
+          <option value="derived_from">Получено из</option>
+          <option value="updates">Обновляет</option>
+        </select>
+      </label>
+      <label>Вторая запись<select id="knowledgeLinkRight"></select></label>
+      <label class="knowledge31-link-note">Комментарий<input id="knowledgeLinkNote" maxlength="500" placeholder="Необязательно"></label>
+      <button type="submit">＋ Добавить связь</button>
+    </form>
+    <div id="knowledgeLinkStatus" class="hint"></div>
+    <div id="knowledgeLinks" class="knowledge31-stack"></div>
+  </section>
+</section>
 <section id="historyBlock"><h3>06. История развития</h3><div id="developmentHistory" class="journal"></div></section><section id="cloudSetup"><h3 id="cloudSetupTitle">Cloud.ru не настроен</h3>
 <p class="hint">Вставьте секретный API-ключ Cloud.ru. Он останется в локальном закрытом файле .env и не будет отправлен в GitHub или сохранён браузером.</p>
 <p><label>API-ключ Cloud.ru <input id="cloudKey" type="password" autocomplete="off" spellcheck="false" placeholder="Вставьте Key Secret (не показывается после сохранения)"></label></p>
@@ -548,4 +601,4 @@
     </section>
   </div>
 </div>
-<script defer src="/static/app.js?v=4.8.0"></script><script defer src="/static/sidebar.js?v=4.8.0"></script><script defer src="/static/companion.js?v=4.8.0"></script></body></html>
+<script defer src="/static/app.js?v=4.9.0"></script><script defer src="/static/sidebar.js?v=4.9.0"></script><script defer src="/static/companion.js?v=4.9.0"></script></body></html>
