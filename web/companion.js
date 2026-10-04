@@ -212,7 +212,7 @@
     },
     tasks:()=>statusInfo(),
     profile:()=>navigate("account"),
-    appearance:()=>{navigate("account");el("characterBlock")?.scrollIntoView({block:"start"});},
+    appearance:()=>{navigate("account");el("foxInstall")?.scrollIntoView({block:"start",behavior:"smooth"});el("foxPackUpload")?.focus();},
     quiet:async()=>{settings.quiet=!settings.quiet;fallbackDimensions();
       if(settings.quiet){panel.hidden=true;if("speechSynthesis" in window)speechSynthesis.cancel();}
       await saveSettings();},
