@@ -11,6 +11,7 @@ import urllib.request
 import urllib.error
 import zipfile
 import stat
+import sqlite3
 from pathlib import Path
 
 REMOTE="https://github.com/Aspksa/Sayuri.git"
@@ -199,7 +200,20 @@ def _transfer_local_state(root: Path, destination: Path) -> None:
         for child in source.rglob("*"):
             if child.is_symlink():
                 raise UpdateError("В локальных данных обнаружена ссылка: перенос остановлен")
-        shutil.copytree(source,destination/name,symlinks=False)
+        # SQLite is live while the browser downloads the update: copy it using
+        # the SQLite backup API, not as separate db/wal/shm files.
+        def ignore_sqlite(parent, names):
+            return {"sayuri.sqlite3","sayuri.sqlite3-wal","sayuri.sqlite3-shm"} if Path(parent)==source else set()
+        shutil.copytree(source,destination/name,symlinks=False,ignore=ignore_sqlite)
+        live_db=source/"sayuri.sqlite3"
+        if live_db.is_file():
+            src=sqlite3.connect(live_db)
+            dst=sqlite3.connect(destination/name/"sayuri.sqlite3")
+            try:
+                src.backup(dst)
+            finally:
+                dst.close()
+                src.close()
     # External SAYURI_DATA_DIR and SAYURI_PROJECTS_DIR stay referenced by copied .env.
 
 
@@ -219,8 +233,10 @@ def prepare_zip_update(root: Path) -> dict:
             raise UpdateError("Папка новой версии уже существует: "+output.name)
         # Make an independent backup of the currently used SQLite and attachments.
         from backup import main as backup
-        if backup()!=0:
-            raise UpdateError("Сначала создайте базу/архив через Sayuri-backup.bat")
+        # New installations can be updated before the initial SQLite DB exists.
+        from server.paths import data_root
+        if (data_root(root)/"sayuri.sqlite3").is_file() and backup()!=0:
+            raise UpdateError("Не удалось создать резервную копию базы")
         with tempfile.TemporaryDirectory(prefix="sayuri-zip-",dir=root.parent) as work:
             archive=Path(work)/"source.zip"
             stage=Path(work)/"new"
@@ -237,7 +253,7 @@ def prepare_zip_update(root: Path) -> dict:
         return {"updated":True,"restart_required":True,"mode":"zip",
                 "version":head[:12],"new_folder":str(output),
                 "message":"Новая Sayuri подготовлена рядом с текущей. Закройте старую программу и запустите Sayuri.bat в новой папке."}
-    except (OSError,zipfile.BadZipFile,shutil.Error) as exc:
+    except (OSError,zipfile.BadZipFile,shutil.Error,sqlite3.Error) as exc:
         raise UpdateError("Не удалось подготовить ZIP-обновление") from exc
     finally:
         UPDATE_LOCK.release()
