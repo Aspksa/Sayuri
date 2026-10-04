@@ -1,7 +1,7 @@
 {
-  "ui_version": "4.4.0",
+  "ui_version": "4.5.0",
   "persona_version": "2.0.0",
   "character_product": "SAYURI BEYOND",
-  "release_notes": "Animation Engine: безопасная установка локального ZIP с покадровыми состояниями idle, walk, think, read, work, happy, attention и sleep; плавное переключение кадров и fallback на обычный PNG.",
+  "release_notes": "Spatial Awareness: SAYURI BEYOND распознаёт защищённые зоны интерфейса, оценивает пересечения и выбирает безопасные позиции при автономном движении, следовании и событиях.",
   "release_date": "2026-10-04"
 }
