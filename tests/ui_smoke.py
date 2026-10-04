@@ -43,7 +43,21 @@ def run():
                         page.on("pageerror",lambda error:errors.append(str(error)))
                         page.goto(SITE,wait_until="domcontentloaded")
                         page.wait_for_selector("#showAccount")
+                        # Exactly one coherent stylesheet, no three generations of overrides.
+                        assert page.locator('link[href*="theme.css"]').count()==1,width
+                        assert page.locator("head style").count()==0,width
+                        page.wait_for_function("!!document.querySelector('link[href*=theme.css]').sheet")
                         assert page.locator("#accountView").is_visible(),width
+                        assert page.locator(".advanced-settings").count()==1,width
+                        assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
+                        bg=page.evaluate("getComputedStyle(document.body).backgroundColor")
+                        assert bg.startswith("rgb("),bg
+                        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
+                        if width in (390,1440):
+                            snapshot=ROOT/"ui-previews"/("account-"+str(width)+".png")
+                            snapshot.parent.mkdir(exist_ok=True)
+                            page.locator("#accountView").screenshot(path=str(snapshot))
+                        
                         assert page.locator("#showUpdates").count()==1,width
                         if width<=767:
                             assert not page.locator("#sayuriSidebar").is_visible() or (
@@ -58,6 +72,9 @@ def run():
                                 page.locator("#"+id+" summary").click()
                             foot=page.locator(".sidebar-fixed-bottom").bounding_box()
                             assert foot["y"]+foot["height"]<=903,foot
+                            if width==390:
+                                snap=ROOT/"ui-previews"/"mobile-menu.png"
+                                page.screenshot(path=str(snap))
                             page.keyboard.press("Escape")
                             page.wait_for_timeout(50)
                             assert not page.locator("body").get_attribute("class") or (
@@ -77,6 +94,7 @@ def run():
                             page.locator("#showHome").click()
                             assert page.locator("#homeView").is_visible()
                             assert page.locator("#showHome").get_attribute("aria-current")=="page"
+                        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
                         assert not errors,(width,errors)
                         context.close()
                     print("Browser UI PASS: 360, 390, 768, 1024, 1440; focus, drawer, collapse, footer")
