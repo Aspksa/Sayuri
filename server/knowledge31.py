@@ -160,6 +160,24 @@ def compatible_scope(a: dict,b: dict,project_id: str | None) -> bool:
     return True
 
 
+def knowledge_memories(c,*,user_id: str,now: int,project_id: str | None=None,limit: int=500) -> list[dict]:
+    c.execute("""UPDATE memories SET status='archived',updated=?
+                 WHERE user_id=? AND status='active' AND expires IS NOT NULL AND expires<=?""",
+              (now,user_id,now))
+    clauses=["user_id=?","status='active'","(expires IS NULL OR expires>?)"]
+    params:list[object]=[user_id,now]
+    if project_id:
+        clauses.append("(scope!='project' OR project_id=?)")
+        params.append(project_id)
+    else:
+        clauses.append("scope!='project'")
+    params.append(max(1,min(limit,1000)))
+    rows=c.execute(
+        "SELECT * FROM memories WHERE "+" AND ".join(clauses)+
+        " ORDER BY priority DESC, confidence DESC, updated DESC LIMIT ?",params).fetchall()
+    return [dict(row) for row in rows]
+
+
 def semantic_search(c,*,user_id: str,memories: list[dict],query: str,now: int,
                     project_id: str | None=None,limit: int=20) -> list[dict]:
     query=query.strip()
