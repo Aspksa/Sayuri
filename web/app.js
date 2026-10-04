@@ -90,3 +90,5 @@ $('#logout').onclick=async()=>{try{await api('/auth/logout','POST')}catch{}sessi
 $('#memoryForm').onsubmit=async e=>{e.preventDefault();try{await api('/memory','POST',{text:$('#fact').value});$('#fact').value='';account()}catch(x){fail(x)}};
 $('#fileForm').onsubmit=async e=>{e.preventDefault();const f=$('#file').files[0];if(!f)return;const form=new FormData();form.append('file',f);try{await api('/documents','POST',form);$('#file').value='';files()}catch(x){fail(x)}};
 (async()=>{if(token){try{await api('/chats');$('#gate').classList.add('hidden');await refresh()}catch{token='';sessionStorage.removeItem('sayuri_token')}}})();
+
+if ('serviceWorker' in navigator && location.protocol!=='file:') {window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
