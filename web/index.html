@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.7.3"><link rel="stylesheet" href="/static/companion.css?v=4.7.3"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.7.4"><link rel="stylesheet" href="/static/companion.css?v=4.7.4"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ico-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
 <symbol id="ico-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
 <symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M20 16.6A5 5 0 0 0 17.5 7a7 7 0 0 0-13.2 2.3A4.5 4.5 0 0 0 7.5 18H19a3 3 0 0 0 1-5.7"/></symbol>
@@ -52,7 +52,7 @@
   <div class="account-main-heading">
     <span class="kicker">ЦЕНТР УПРАВЛЕНИЯ SAYURI</span>
     <h2>Личный кабинет Sayuri</h2>
-    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.7.3</b></span></div>
+    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.7.4</b></span></div>
     <p class="hint">Здесь находятся ваши знания, опыт, библиотека, история развития и настройки модели. Характер и внешний вид Саюри вынесены в отдельный раздел.</p>
   </div>
   <div class="account-action-grid">
@@ -191,13 +191,19 @@
         </nav>
 
         <div class="documents-file-area">
-          <div class="documents-current-folder">
+          <div class="documents-current-folder" id="documentsCurrentFolderCard" data-folder-color="slate">
             <button id="documentsParentFolder" type="button" aria-label="На уровень выше" title="На уровень выше">←</button>
+            <span id="documentsCurrentFolderIcon" class="documents-current-folder-icon" aria-hidden="true">📁</span>
             <div>
               <small>Текущая папка</small>
               <strong id="documentsCurrentFolder">Мои файлы</strong>
               <span id="documentsCurrentPath">Корень хранилища</span>
+              <p id="documentsCurrentDescription" hidden></p>
             </div>
+          </div>
+          <div id="documentsFolderSummary" class="documents-folder-summary">
+            <span><strong id="documentsFolderCount">0</strong> папок</span>
+            <span><strong id="documentsFileCount">0</strong> файлов</span>
           </div>
           <div id="driveBreadcrumbs" class="drive-breadcrumbs" aria-label="Путь к папке"></div>
           <div id="driveInfo" class="documents-location" role="status">Подключение к локальному хранилищу…</div>
@@ -256,6 +262,7 @@
     </div>
     <button type="button" role="menuitem" data-doc-action="open">↗ <span>Открыть</span></button>
     <button type="button" role="menuitem" data-doc-action="rename">✎ <span>Переименовать</span></button>
+    <button type="button" role="menuitem" data-doc-action="customize">✦ <span>Оформить папку</span></button>
     <button type="button" role="menuitem" data-doc-action="move">⇢ <span>Переместить</span></button>
     <button type="button" role="menuitem" data-doc-action="pin">☆ <span>Закрепить</span></button>
     <div class="documents-context-separator"></div>
@@ -292,6 +299,52 @@
       <div class="documents-dialog-actions">
         <button id="moveItemCancel" type="button">Отмена</button>
         <button id="moveItemSubmit" type="submit">Переместить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="folderIdentityDialog" class="documents-dialog folder-identity-dialog" role="dialog" aria-labelledby="folderIdentityTitle">
+    <form id="folderIdentityForm">
+      <div class="documents-dialog-head">
+        <div><span class="documents-eyebrow">ОФОРМЛЕНИЕ ПАПКИ</span><h3 id="folderIdentityTitle">Папка</h3></div>
+        <button id="folderIdentityClose" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <p class="documents-dialog-parent">Путь: <strong id="folderIdentityPath">—</strong></p>
+
+      <fieldset class="folder-identity-fieldset">
+        <legend>Иконка</legend>
+        <div class="folder-icon-options" role="group" aria-label="Иконка папки">
+          <button type="button" data-folder-icon="folder" aria-pressed="true"><span>📁</span><small>Папка</small></button>
+          <button type="button" data-folder-icon="book"><span>📚</span><small>Книги</small></button>
+          <button type="button" data-folder-icon="project"><span>🗂️</span><small>Проект</small></button>
+          <button type="button" data-folder-icon="archive"><span>🗄️</span><small>Архив</small></button>
+          <button type="button" data-folder-icon="research"><span>🔬</span><small>Исследование</small></button>
+          <button type="button" data-folder-icon="personal"><span>🏠</span><small>Личное</small></button>
+          <button type="button" data-folder-icon="star"><span>★</span><small>Важное</small></button>
+        </div>
+      </fieldset>
+
+      <fieldset class="folder-identity-fieldset">
+        <legend>Цвет</legend>
+        <div class="folder-color-options" role="group" aria-label="Цвет папки">
+          <button type="button" data-folder-color="violet" aria-label="Фиолетовый" aria-pressed="true"></button>
+          <button type="button" data-folder-color="rose" aria-label="Розовый"></button>
+          <button type="button" data-folder-color="blue" aria-label="Синий"></button>
+          <button type="button" data-folder-color="cyan" aria-label="Бирюзовый"></button>
+          <button type="button" data-folder-color="green" aria-label="Зелёный"></button>
+          <button type="button" data-folder-color="amber" aria-label="Янтарный"></button>
+          <button type="button" data-folder-color="slate" aria-label="Нейтральный"></button>
+        </div>
+      </fieldset>
+
+      <label for="folderIdentityDescription">Короткое описание</label>
+      <textarea id="folderIdentityDescription" maxlength="240" rows="3"
+        placeholder="Например: материалы по архитектуре Sayuri"></textarea>
+      <div class="folder-identity-counter"><span id="folderIdentityCounter">0</span>/240</div>
+      <p id="folderIdentityError" class="documents-dialog-error" role="alert"></p>
+      <div class="documents-dialog-actions">
+        <button id="folderIdentityCancel" type="button">Отмена</button>
+        <button id="folderIdentitySubmit" type="submit">Сохранить оформление</button>
       </div>
     </form>
   </dialog>
@@ -415,4 +468,4 @@
     </section>
   </div>
 </div>
-<script defer src="/static/app.js?v=4.7.3"></script><script defer src="/static/sidebar.js?v=4.7.3"></script><script defer src="/static/companion.js?v=4.7.3"></script></body></html>
+<script defer src="/static/app.js?v=4.7.4"></script><script defer src="/static/sidebar.js?v=4.7.4"></script><script defer src="/static/companion.js?v=4.7.4"></script></body></html>
