@@ -1,19 +1,16 @@
-"""Non-destructive GitHub Releases check. No unsigned code execution."""
-import json
-from urllib.request import Request, urlopen
-from urllib.error import URLError
+"""Safe startup update notification; no implicit download or code execution."""
+from __future__ import annotations
 from pathlib import Path
-VERSION="0.1.0"
-URL="https://api.github.com/repos/Aspksa/Sayuri/releases/latest"
-def main():
+from server.updating import update_status, UpdateError
+
+if __name__ == "__main__":
     try:
-        request=Request(URL,headers={"User-Agent":"Sayuri-update-check/0.1","Accept":"application/vnd.github+json"})
-        with urlopen(request,timeout=4) as response: data=json.load(response)
-        tag=str(data.get("tag_name","")).lstrip("v")
-        if not tag: print("Sayuri: релизы GitHub пока отсутствуют");return
-        if tag==VERSION: print("Sayuri: актуальная версия",VERSION)
-        else: print("Sayuri: опубликована версия",tag,"—",data.get("html_url",URL))
-        print("Установка релизов вручную после проверки источника и резервного копирования")
-    except (URLError, TimeoutError, ValueError, OSError):
-        print("Sayuri: проверка GitHub недоступна, запуск продолжается")
-if __name__=="__main__":main()
+        state=update_status(Path(__file__).resolve().parent)
+        if state["update_available"]:
+            print("Sayuri: новая версия на GitHub. Обновите через Личный кабинет Sayuri.")
+        else:
+            print("Sayuri: текущая версия актуальна.")
+        if state["mode"]=="zip" and state["local"]=="ZIP (неизвестна)":
+            print("Sayuri: ZIP-версия без номера; можно безопасно подготовить новый ZIP в кабинете.")
+    except UpdateError:
+        print("Sayuri: проверка GitHub недоступна, запуск продолжается.")
