@@ -373,7 +373,8 @@ def next_initiative(c,*,user_id: str,now: int,trigger: str="periodic",
                     source_id=topic["id"],project_id=project_id,target_view="chat"))
 
     if not _muted(c,user_id,"greeting",now) and trigger in ("session","focus"):
-        if previous_seen is None or (gap is not None and gap>=21600):
+        # Fresh installs already have a static welcome. Proactive greeting starts on a real return.
+        if gap is not None and gap>=21600:
             if not _recent_delivery(c,user_id,"greeting",now,21600):
                 candidates.append(_candidate(
                     "greeting",64,
