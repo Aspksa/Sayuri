@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=3.2.1"><link rel="stylesheet" href="/static/companion.css?v=5"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.0.0"><link rel="stylesheet" href="/static/companion.css?v=4.0.0"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ico-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
 <symbol id="ico-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
 <symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M20 16.6A5 5 0 0 0 17.5 7a7 7 0 0 0-13.2 2.3A4.5 4.5 0 0 0 7.5 18H19a3 3 0 0 0 1-5.7"/></symbol>
@@ -21,6 +21,7 @@
   </div>
   <div class="nav-pinned"><div class="sidebar-section-title">НАВИГАЦИЯ</div>
     <nav class="main-nav" aria-label="Основное меню">
+      <button id="showBeyond" title="SAYURI BEYOND · живой характер"><span class="beyond-menu-sigil">✿</span><span>SAYURI BEYOND</span></button>
       <button id="showChat" title="Единый чат"><svg aria-hidden="true" class="ui-icon"><use href="#ico-message"></use></svg><span>Единый чат</span></button>
       <button id="showWork" title="Рабочие проекты"><svg aria-hidden="true" class="ui-icon"><use href="#ico-briefcase"></use></svg><span>Рабочие проекты</span></button>
       <button id="showFiles" title="Документы / Облако / Sayuri"><svg aria-hidden="true" class="ui-icon"><use href="#ico-cloud"></use></svg><span>Документы / Облако / Sayuri</span></button>
@@ -47,50 +48,20 @@
     <button id="showUpdates" title="Обновление проекта"><svg aria-hidden="true" class="ui-icon"><use href="#ico-refresh"></use></svg><span>Обновление проекта</span></button>
     <span class="sidebar-repo">Aspksa / Sayuri · GitHub</span>
   </div>
-</aside><main><header><button id="menu" type="button" aria-label="Открыть меню">☰</button><b id="title">Личный кабинет Саюри</b><span style="flex:1"></span><small id="cloud" title="Статус Cloud.ru">Облачная модель</small></header><section class="view" id="chatView"><div class="messages" id="messages"></div><p id="error" class="hint" style="padding:0 18px"></p><form class="compose" id="composer"><textarea id="draft" rows="2" placeholder="Написать наставнику (Sayuri изучает диалог)…"></textarea><button id="send" type="submit" aria-label="Отправить сообщение">➤</button></form></section><section class="view active" id="accountView"><div class="settings cabinet"><h2 class="sr-only">Личный кабинет Sayuri</h2><div class="cabinet-hero">
-  <div class="character-stage" id="characterStage" aria-label="Саюри: анимированный портрет">
-    <div class="character-halo"></div>
-    <img src="/static/assets/avatar.webp" class="character-portrait" alt="Портрет Саюри">
-    <div class="character-expression" id="characterExpression">✦ спокойная улыбка</div>
+</aside><main><header><button id="menu" type="button" aria-label="Открыть меню">☰</button><b id="title">Личный кабинет Саюри</b><span style="flex:1"></span><small id="cloud" title="Статус Cloud.ru">Облачная модель</small></header><section class="view" id="chatView"><div class="messages" id="messages"></div><p id="error" class="hint" style="padding:0 18px"></p><form class="compose" id="composer"><textarea id="draft" rows="2" placeholder="Написать наставнику (Sayuri изучает диалог)…"></textarea><button id="send" type="submit" aria-label="Отправить сообщение">➤</button></form></section><section class="view active" id="accountView"><div class="settings cabinet">
+  <div class="account-main-heading">
+    <span class="kicker">ЦЕНТР УПРАВЛЕНИЯ SAYURI</span>
+    <h2>Личный кабинет Sayuri</h2>
+    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.0</b></span></div>
+    <p class="hint">Здесь находятся ваши знания, опыт, библиотека, история развития и настройки модели. Характер и внешний вид Саюри вынесены в отдельный раздел.</p>
   </div>
-  <div class="hero-content">
-    <div class="hero-kicker">ЛИЧНЫЙ КАБИНЕТ · SAYURI 2.0 <span class="ui-build">Интерфейс 3.2 · загрузка образа</span></div>
-    <h2>Здравствуйте, Господин <span class="sakura">✿</span></h2>
-    <p id="characterGreeting">Я Саюри. Готова изучать новые знания и бережно хранить нашу историю.</p>
-    <div class="hero-actions">
-      <button id="goChat" type="button">✦ Открыть чат</button>
-      <button id="greetSayuri" type="button">✿ Приветствие</button>
-      <button id="speechToggle" type="button" aria-pressed="false">♫ Голос выключен</button>
-      <button id="reduceMotion" type="button" aria-pressed="false">◌ Без анимации</button>
-    </div>
-    <p class="hint">Выражения и настроение — художественная реакция персонажа на контекст, а не реальные эмоции ИИ. Озвучивание использует голос браузера, если он доступен.</p>
+  <div class="account-action-grid">
+    <button type="button" id="accountOpenBeyond" class="account-action main-action"><strong>✿ SAYURI BEYOND</strong><span>Образ, движения, голос и характер</span><small>Открыть отдельный экран →</small></button>
+    <button type="button" data-jump="skillBlock" class="account-action"><strong>Навыки</strong><span>Фактическая статистика и проверки</span></button>
+    <button type="button" data-jump="libraryBlock" class="account-action"><strong>Библиотека</strong><span>Подтверждённые знания и документы</span></button>
+    <button type="button" id="accountOpenUpdates" class="account-action"><strong>Обновление</strong><span>Проверка версии и папки запуска</span></button>
   </div>
-</div>
-<div class="fox-entry-bar">
-  <div><strong>✿ Образ Саюри</strong><span>Изображения для портрета и полного роста</span></div>
-  <div class="fox-entry-actions"><button id="foxJumpInstall" type="button" aria-controls="foxInstall">Установить образ ↓</button><button id="foxResetPosition" type="button" title="Вернуть персонажа в правый нижний угол">Вернуть Саюри справа</button></div>
-</div>
-<div class="account-quicknav"><button type="button" data-jump="characterBlock">01 · Характер</button><button type="button" data-jump="skillBlock">02 · Навыки</button><button type="button" data-jump="experienceBlock">03 · Опыт</button><button type="button" data-jump="libraryBlock">04 · Библиотека</button><button type="button" data-jump="historyBlock">05 · Развитие</button><button type="button" data-jump="cloudSetup">06 · Cloud.ru</button></div>
-<section id="characterBlock"><h3>01. Живой характер Саюри</h3><p class="hint">Естественные приветствия, плавные движения, мягкий юмор и контекстные реакции. Голос включается только по запросу.</p><div id="foxInstall" class="fox-install-feature"><div class="fox-install-title"><span class="fox-install-symbol">✿</span><div><strong>Установка внешности Саюри</strong><p>Ваш портрет и девятихвостый образ — загрузите комплект ZIP здесь.</p></div></div><div class="fox-appearance">
-  <h3>Образ Саюри</h3>
-  <p class="hint">Добавьте два PNG: портрет и фигуру в полный рост. Изображения сохраняются только на этом компьютере в личных данных, не в GitHub.</p>
-  <div class="fox-pack-label"><strong>Быстрая установка образа Саюри</strong>
-    <span>Комплект ZIP содержит portrait.png и full.png</span>
-    <input id="foxPackUpload" class="fox-file-input-hidden" type="file" accept=".zip,application/zip" tabindex="-1" aria-label="Комплект портрета и полного роста">
-    <button id="foxPickPack" class="fox-pick-pack" type="button">↑ Выбрать ZIP с образами</button>
-    <small id="foxPackName">Файл пока не выбран</small>
-  </div>
-  <div class="fox-upload-grid">
-    <label>Портрет (PNG)<input id="foxPortraitUpload" type="file" accept="image/png"></label>
-    <label>Полный рост (PNG)<input id="foxFullUpload" type="file" accept="image/png"></label>
-  </div>
-  <p><button id="foxModeCompact" type="button">Компактный</button>
-  <button id="foxModeFloating" type="button">Полный рост</button>
-  <button id="foxModeExpanded" type="button">С пояснением</button>
-  <button id="foxVisibility" type="button">Скрыть персонажа</button></p>
-  <p id="foxAppearanceStatus" class="hint" role="status">Внешность можно изменить в любое время.</p>
-</div></div>
-</section>
+  <div class="account-quicknav"><button type="button" data-jump="experienceBlock">Опыт</button><button type="button" data-jump="historyBlock">История развития</button><button type="button" data-jump="cloudSetup">Cloud.ru</button></div>
 <section id="skillBlock"><h3>02. Навыки и компетенции</h3><div id="skillSummary" class="metric-grid"></div><p class="hint">Отображаются измеримые показатели и доступные механизмы, не выдуманные проценты успешности.</p></section>
 <section id="experienceBlock"><h3>03. Опыт и дневник</h3><div id="experienceSummary" class="metric-grid"></div><div id="experienceJournal" class="journal"></div></section>
 <section id="libraryBlock"><h3>04. Библиотека знаний</h3><p class="hint">Подтверждённые записи памяти, учебный материал персонажа и принятые выводы наставника. Непроверенные сведения не становятся фактами автоматически.</p><input type="search" id="knowledgeSearch" placeholder="Поиск в библиотеке" aria-label="Поиск знаний"><div id="knowledgeLibrary" class="journal"></div></section>
@@ -112,7 +83,77 @@
 <option value="roleplay">Лисья гостиная (ролевая сцена)</option>
 </select></label></p><p><label>Нежность <select id="intimacy" aria-label="Нежность">
 <option value="neutral">Нейтрально</option><option value="warm">Тепло</option><option value="tender">Нежно</option>
-</select></label></p><button id="saveStyle">Сохранить стиль</button><span id="styleStatus" class="hint"></span></section><section><h3>Память</h3><form id="memoryForm" class="line"><input id="fact" placeholder="Подтверждённый факт"><button>Добавить</button></form><div id="memories"></div></section><section><h3>Развитие</h3><div id="stats"></div><p><button id="cloudModels">Модели Cloud.ru</button></p><div id="cloudModelList" class="hint"></div><p><button id="reviewChat">Саюри: изучить общий чат</button></p><div id="suggestions"></div><button id="datasetPreview">Посмотреть число обучающих примеров</button><div id="datasetStats" class="hint"></div><p class="hint">Здесь сохраняется обратная связь; настоящее дообучение модели ещё не реализовано.</p></section></div></details></div></section><section class="view" id="updatesView"><div class="settings"><h2>Обновление проекта</h2><section id="updateBlock"><h3>Обновление проекта</h3><p class="hint">Источник: <a href="https://github.com/Aspksa/Sayuri" target="_blank" rel="noopener noreferrer">github.com/Aspksa/Sayuri</a>. Sayuri поддерживает и ZIP-установку, и Git-клон. Перед подготовкой обновления создаётся резервная копия, личные данные остаются локальными.</p><p id="updateStatus" class="hint" role="status">Версия ещё не проверена</p><p><button id="checkUpdate" type="button">Проверить обновления</button> <button id="installUpdate" type="button" disabled>Обновить с GitHub</button></p><p class="hint">Для ZIP: новая версия будет распакована в отдельную папку рядом с текущей; затем запустите Sayuri.bat из новой папки. Для Git: обновление выполняется по fast-forward. Данные, настройки и старая версия сохраняются.</p></section></div></section><section class="view" id="workView"><div class="settings"><h2>Рабочие проекты</h2><p class="hint">Документы / Облако / Sayuri / Рабочие проекты · только чтение</p><div id="workBrowser" class="file-browser"></div></div></section><section class="view" id="homeView"><div class="settings"><h2>Домашние проекты</h2><p class="hint">Документы / Облако / Sayuri / Домашние проекты · только чтение</p><div id="homeBrowser" class="file-browser"></div></div></section><section class="view" id="filesView"><div class="settings drive-layout">
+</select></label></p><button id="saveStyle">Сохранить стиль</button><span id="styleStatus" class="hint"></span></section><section><h3>Память</h3><form id="memoryForm" class="line"><input id="fact" placeholder="Подтверждённый факт"><button>Добавить</button></form><div id="memories"></div></section><section><h3>Развитие</h3><div id="stats"></div><p><button id="cloudModels">Модели Cloud.ru</button></p><div id="cloudModelList" class="hint"></div><p><button id="reviewChat">Саюри: изучить общий чат</button></p><div id="suggestions"></div><button id="datasetPreview">Посмотреть число обучающих примеров</button><div id="datasetStats" class="hint"></div><p class="hint">Здесь сохраняется обратная связь; настоящее дообучение модели ещё не реализовано.</p></section></div></details></div></section><section class="view" id="beyondView" aria-label="SAYURI BEYOND — характер и внешний вид">
+ <div class="settings beyond-settings">
+ <div class="section-heading"><span class="kicker">ПЕРСОНАЖ · BEYOND</span>
+   <h2>SAYURI BEYOND</h2>
+   <p>Живой характер Саюри, её образ и поведение — отдельно от настроек личного кабинета.</p></div>
+ <div class="cabinet-hero">
+  <div class="character-stage" id="characterStage" aria-label="Саюри: анимированный портрет">
+    <div class="character-halo"></div>
+    <img src="/static/assets/avatar.webp" class="character-portrait" alt="Портрет Саюри">
+    <div class="character-expression" id="characterExpression">✦ спокойная улыбка</div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-kicker">SAYURI BEYOND · ХАРАКТЕР</div>
+    <h2>Здравствуйте, Господин <span class="sakura">✿</span></h2>
+    <p id="characterGreeting">Я Саюри. Готова изучать новые знания и бережно хранить нашу историю.</p>
+    <div class="hero-actions">
+      <button id="goChat" type="button">✦ Открыть чат</button>
+      <button id="greetSayuri" type="button">✿ Приветствие</button>
+      <button id="speechToggle" type="button" aria-pressed="false">♫ Голос выключен</button>
+      <button id="reduceMotion" type="button" aria-pressed="false">◌ Без анимации</button>
+    </div>
+    <p class="hint">Выражения и настроение — художественная реакция персонажа на контекст, а не реальные эмоции ИИ. Озвучивание использует голос браузера, если он доступен.</p>
+  </div>
+</div>
+<div class="fox-entry-bar">
+  <div><strong>✿ Образ Саюри</strong><span>Изображения для портрета и полного роста</span></div>
+  <div class="fox-entry-actions"><button id="foxJumpInstall" type="button" aria-controls="foxInstall">Установить образ ↓</button><button id="foxResetPosition" type="button" title="Вернуть персонажа в правый нижний угол">Вернуть Саюри справа</button></div>
+</div>
+
+ <section id="characterBlock"><h3>Живой характер · SAYURI BEYOND</h3><p class="hint">Естественные приветствия, плавные движения, мягкий юмор и контекстные реакции. Голос включается только по запросу.</p><div id="foxInstall" class="fox-install-feature"><div class="fox-install-title"><span class="fox-install-symbol">✿</span><div><strong>Установка внешности Саюри</strong><p>Ваш портрет и девятихвостый образ — загрузите комплект ZIP здесь.</p></div></div><div class="fox-appearance">
+  <h3>Образ Саюри</h3>
+  <p class="hint">Добавьте два PNG: портрет и фигуру в полный рост. Изображения сохраняются только на этом компьютере в личных данных, не в GitHub.</p>
+  <div class="fox-pack-label"><strong>Быстрая установка образа Саюри</strong>
+    <span>Комплект ZIP содержит portrait.png и full.png</span>
+    <input id="foxPackUpload" class="fox-file-input-hidden" type="file" accept=".zip,application/zip" tabindex="-1" aria-label="Комплект портрета и полного роста">
+    <button id="foxPickPack" class="fox-pick-pack" type="button">↑ Выбрать ZIP с образами</button>
+    <small id="foxPackName">Файл пока не выбран</small>
+  </div>
+  <div class="fox-upload-grid">
+    <label>Портрет (PNG)<input id="foxPortraitUpload" type="file" accept="image/png"></label>
+    <label>Полный рост (PNG)<input id="foxFullUpload" type="file" accept="image/png"></label>
+  </div>
+  <p><button id="foxModeCompact" type="button">Компактный</button>
+  <button id="foxModeFloating" type="button">Полный рост</button>
+  <button id="foxModeExpanded" type="button">С пояснением</button>
+  <button id="foxVisibility" type="button">Скрыть персонажа</button></p>
+  <p id="foxAppearanceStatus" class="hint" role="status">Внешность можно изменить в любое время.</p>
+</div></div>
+</section>
+
+ <p class="beyond-note">Движения и приветствия — художественные эффекты интерфейса. Полноценные эмоции, Live2D и голосовой диалог пока не реализованы.</p>
+ <button type="button" id="beyondBackAccount" class="subtle-cta">← Вернуться в личный кабинет</button>
+ </div></section><section class="view" id="updatesView"><div class="settings updates-settings">
+ <div class="section-heading"><span class="kicker">УПРАВЛЕНИЕ ВЕРСИЯМИ</span><h2>Обновление проекта</h2>
+   <p>Вы устанавливаете Sayuri из ZIP. Обновление не должно стирать память или перезаписывать открытый сервер.</p></div>
+ <div class="update-info-grid">
+  <section class="update-info"><h3>Запущенная версия</h3><p><strong id="runningVersion">Определение версии…</strong></p>
+   <p class="hint">Сейчас программа работает из папки:</p><div id="runningFolder" class="monospace-path">Проверка…</div>
+   <p id="runningVersionNote" class="hint">Проверяйте именно эту папку, а не название скачанного архива.</p></section>
+  <section class="update-info"><h3>Последняя версия GitHub</h3>
+   <p id="updateStatus" role="status" aria-live="polite">Версия ещё не проверена</p>
+   <p><button type="button" id="checkUpdate">Проверить GitHub</button> <button type="button" id="installUpdate" disabled>Подготовить обновление</button></p></section>
+ </div>
+ <section class="update-instructions"><h3>Почему старый дизайн остаётся после обновления?</h3>
+   <ol><li>ZIP-обновление распаковывается <strong>в соседнюю новую папку</strong> и не заменяет работающую Sayuri.</li>
+   <li>Сначала закройте старое окно <code>Sayuri.bat</code> и сервер на порту 8765.</li>
+   <li>Откройте <strong>новую папку</strong>, запустите там <code>Sayuri.bat</code> и обновите браузер через <strong>Ctrl+F5</strong>.</li>
+   <li>Вернитесь сюда и проверьте путь «Запущенная версия» выше. Если путь старый, работает прежний сервер.</li></ol>
+   <div id="preparedUpdate" class="prepared-update" hidden role="status"></div>
+   <p class="hint">Исходный код: <a href="https://github.com/Aspksa/Sayuri" target="_blank" rel="noopener noreferrer">github.com/Aspksa/Sayuri</a>. Личные данные и ключи Cloud.ru не публикуются в GitHub.</p></section>
+ </div></section><section class="view" id="workView"><div class="settings"><h2>Рабочие проекты</h2><p class="hint">Документы / Облако / Sayuri / Рабочие проекты · только чтение</p><div id="workBrowser" class="file-browser"></div></div></section><section class="view" id="homeView"><div class="settings"><h2>Домашние проекты</h2><p class="hint">Документы / Облако / Sayuri / Домашние проекты · только чтение</p><div id="homeBrowser" class="file-browser"></div></div></section><section class="view" id="filesView"><div class="settings drive-layout">
 <div class="drive-top"><div><div class="hero-kicker">ЛОКАЛЬНОЕ ХРАНИЛИЩЕ</div><h2>Документы / Облако / Sayuri</h2><p class="hint">Файловый менеджер на вашем компьютере, не подключение к Yandex или Mail.ru.</p></div><span class="drive-chip">Локально · без отправки ИИ</span></div>
 <div class="drive-toolbar"><button id="driveNewFolder" type="button">＋ Новая папка</button><button id="driveUpload" type="button">↑ Загрузить</button><input type="search" id="driveSearch" placeholder="Поиск файлов" aria-label="Поиск файлов"><input id="driveFileInput" class="hidden" type="file" multiple></div>
 <div id="driveBreadcrumbs" class="drive-breadcrumbs"></div><div id="driveInfo" class="hint"></div><div id="driveFiles" class="drive-grid"></div>
@@ -147,4 +188,4 @@
     <button role="menuitem" data-fox-action="reset">↺ Вернуть положение</button>
   </div>
 </div>
-<script defer src="/static/app.js?v=3.1.0"></script><script defer src="/static/sidebar.js?v=3.0.0"></script><script defer src="/static/companion.js?v=5"></script></body></html>
+<script defer src="/static/app.js?v=4.0.0"></script><script defer src="/static/sidebar.js?v=4.0.0"></script><script defer src="/static/companion.js?v=4.0.0"></script></body></html>
