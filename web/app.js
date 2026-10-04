@@ -211,19 +211,23 @@ async function checkGithubUpdate(){
   try{
     const data=await api('/updates/status');
     if(data.supported===false){status.textContent=data.reason;return}
-    status.textContent='Установлено: '+data.local+' · GitHub: '+data.latest+
+    status.textContent='Способ: '+(data.mode==='zip'?'ZIP':'Git')+' · Установлено: '+data.local+' · GitHub: '+data.latest+
       (data.update_available?' · Доступно обновление':' · Последняя версия')+
-      (!data.clean?' · Найдены локальные изменения':'');
+      (!data.clean?' · Найдены локальные изменения':'')+
+      (data.mode==='zip'?' · Подготовка в новую папку':'');
     $('#installUpdate').disabled=!data.update_available||!data.clean;
+    $('#installUpdate').textContent=data.mode==='zip'?'Скачать ZIP-обновление':'Обновить с GitHub';
   }catch(e){status.textContent='Проверка не удалась: '+e.message}
 }
 $('#checkUpdate').onclick=checkGithubUpdate;
 $('#installUpdate').onclick=async()=>{
-  if(!confirm('Обновить программу из Aspksa/Sayuri? Будет создана резервная копия базы и вложений. После обновления необходимо перезапустить Sayuri.bat.'))return;
+  if(!confirm('Скачать обновление из Aspksa/Sayuri? Для ZIP будет создана отдельная новая папка с вашей памятью и настройками. Старая версия останется нетронутой.'))return;
   $('#installUpdate').disabled=true;
   $('#updateStatus').textContent='Создание резервной копии и загрузка обновления…';
   try{
     const r=await api('/updates/apply','POST',{confirm:true});
-    $('#updateStatus').textContent=r.updated?'Обновление установлено. Закройте Sayuri и запустите Sayuri.bat заново.':'Уже установлена последняя версия.';
+    $('#updateStatus').textContent=r.updated?
+      (r.mode==='zip'?'Новая Sayuri готова: '+r.new_folder+' . Закройте старую Sayuri и откройте Sayuri.bat в новой папке.':
+      'Код обновлён. Закройте Sayuri и запустите Sayuri.bat заново.'):'Уже установлена последняя версия.';
   }catch(e){$('#updateStatus').textContent='Обновление отменено: '+e.message}
 };
