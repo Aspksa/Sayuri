@@ -152,7 +152,7 @@ def run():
                         personality_presence=page.evaluate("window.SayuriPresence.getSnapshot()")
                         assert personality_presence["personalityState"]=="analytical",(width,personality_presence)
                         page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
-                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))"
+                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))")
                         page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="thinking",width
                         page.wait_for_function("() => document.querySelector('#foxMotionState')?.textContent === 'Размышляет'")
