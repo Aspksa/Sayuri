@@ -1,11 +1,11 @@
-/* BEYOND 2.1 — persistent assistant with a dedicated right-click settings window. */
+/* BEYOND 2.2 — persistent assistant with owner-controlled autonomous screen behavior. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
   const shell = el("foxShell"), avatar = el("foxAvatar"), picture = el("foxAvatarImage");
   const menu = el("foxContextMenu"), panel = el("foxPanel");
   if (!shell || !avatar || !menu) return;
-  const keys = ["mode", "quiet", "enabled", "scale", "x", "y"];
+  const keys = ["mode", "quiet", "enabled", "scale", "x", "y", "behavior"];
   const eventTypes = new Set([
     "route_changed", "document_opened", "document_uploaded", "record_selected",
     "task_started", "task_progress", "task_failed", "task_finished",
@@ -14,10 +14,11 @@
   const modules = {account:"Личный кабинет",beyond:"SAYURI BEYOND",chat:"Единый чат",
     files:"Документы / Облако / Sayuri",work:"Рабочие проекты",
     home:"Домашние проекты",updates:"Обновление проекта"};
-  let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null};
+  let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null,behavior:"stationary"};
   let moduleName = "account", selected = null, recentEvent = null, liveStatus = null;
   let lastObjectUrl = null, portraitObjectUrl=null, initialized = false, savePending = false, queuedSave=false;
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
+  let behaviorTimer=null,returnTimer=null,autoMoveTimer=null,waypointIndex=0,lastManualMoveAt=0;
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
   const bound = (v,a,b) => Math.min(b,Math.max(a,v));
@@ -34,13 +35,17 @@
     if (detail.type==="route_changed") {
       moduleName=moduleId;
       document.body.dataset.activeView=moduleName;
-      if(settings.x===null && settings.y===null) position();
+      if(settings.behavior==="follow") followActiveView();
+      else if(settings.x===null && settings.y===null) position();
     }
     if (detail.type==="document_opened" || detail.type==="record_selected")
       selected={module:moduleId,type:recentEvent.entity_type,id:recentEvent.entity_id};
     if(detail.type==="document_uploaded") selected={module:moduleId,
       type:recentEvent.entity_type,id:recentEvent.entity_id};
     if (detail.type==="route_changed" && selected && selected.module!==moduleId) selected=null;
+    if(settings.behavior==="event" &&
+      ["task_finished","task_failed","memory_updated","contradiction_detected"].includes(detail.type))
+      approachEvent(detail.type);
   }
   window.addEventListener("sayuri:context",e=>dispatch(e.detail));
   window.addEventListener("sayuri:runtime",e=>{
@@ -64,6 +69,16 @@
     const scaleControl=el("foxScale"),scaleValue=el("foxScaleValue");
     if(scaleControl)scaleControl.value=String(settings.scale);
     if(scaleValue)scaleValue.textContent=Math.round(settings.scale*100)+"%";
+    document.querySelectorAll("[data-fox-behavior]").forEach(button=>
+      button.setAttribute("aria-pressed",String(button.dataset.foxBehavior===settings.behavior)));
+    const behaviorText={
+      stationary:"Саюри стоит на выбранном месте.",
+      wander:"Саюри свободно гуляет по безопасным точкам интерфейса.",
+      follow:"Саюри следует за активным разделом.",
+      event:"Саюри подходит ближе при важных событиях."
+    };
+    const behaviorStatus=el("foxBehaviorStatus");
+    if(behaviorStatus)behaviorStatus.textContent=behaviorText[settings.behavior]||behaviorText.stationary;
   };
   const dimensions=()=> {
     // Visual scale only; pointer handlers clamp the actual transformed box.
@@ -74,6 +89,74 @@
     const {w,h}=dimensions(),margin=8;
     return {x:bound(x,margin,Math.max(margin,innerWidth-w-margin)),
       y:bound(y,margin,Math.max(margin,innerHeight-h-margin))};
+  }
+  function activeBounds() {
+    const margin=innerWidth<768?12:24;
+    const header=document.querySelector("main>header")?.getBoundingClientRect();
+    const view=document.querySelector(".view.active")?.getBoundingClientRect();
+    const left=Math.max(margin,view?.left??margin);
+    const top=Math.max(margin,(header?.bottom??margin)+margin);
+    const right=Math.min(innerWidth-margin,view?.right??innerWidth-margin);
+    const bottom=Math.min(innerHeight-margin,view?.bottom??innerHeight-margin);
+    return {left,top,right:Math.max(left+40,right),bottom:Math.max(top+40,bottom)};
+  }
+  function autonomousMove(x,y) {
+    if(!settings.enabled||drag||!menu.hidden)return false;
+    const p=clampPosition(x,y);
+    shell.classList.add("fox-autonomous-move");
+    shell.style.right="auto";shell.style.bottom="auto";
+    shell.style.left=p.x+"px";shell.style.top=p.y+"px";
+    clearTimeout(autoMoveTimer);
+    autoMoveTimer=setTimeout(()=>shell.classList.remove("fox-autonomous-move"),900);
+    return true;
+  }
+  function followActiveView() {
+    if(settings.behavior!=="follow"||!settings.enabled)return;
+    const {w,h}=dimensions(),b=activeBounds();
+    const x=b.right-w-12;
+    const y=moduleName==="chat" ? b.bottom-h-(innerWidth<768?92:102) :
+      b.top+Math.max(12,(b.bottom-b.top-h)*.62);
+    autonomousMove(x,y);
+  }
+  function wanderStep() {
+    if(settings.behavior!=="wander"||document.hidden||
+      matchMedia("(prefers-reduced-motion: reduce)").matches||
+      Date.now()-lastManualMoveAt<6500)return;
+    const {w,h}=dimensions(),b=activeBounds();
+    const points=[[.82,.72],[.18,.68],[.28,.24],[.74,.27],[.5,.54]];
+    const point=points[waypointIndex++%points.length];
+    const spanX=Math.max(0,b.right-b.left-w),spanY=Math.max(0,b.bottom-b.top-h);
+    autonomousMove(b.left+spanX*point[0],b.top+spanY*point[1]);
+  }
+  function clearBehaviorTimers() {
+    if(behaviorTimer)clearInterval(behaviorTimer);
+    if(returnTimer)clearTimeout(returnTimer);
+    behaviorTimer=null;returnTimer=null;
+  }
+  function scheduleBehavior() {
+    clearBehaviorTimers();
+    if(settings.behavior==="wander"){
+      setTimeout(wanderStep,1200);
+      behaviorTimer=setInterval(wanderStep,7000);
+    } else if(settings.behavior==="follow") {
+      setTimeout(followActiveView,80);
+    }
+  }
+  function approachEvent(type) {
+    if(settings.behavior!=="event"||!settings.enabled)return;
+    const {w,h}=dimensions(),b=activeBounds();
+    const x=b.right-w-Math.max(16,(b.right-b.left)*.08);
+    const y=b.top+Math.max(20,(b.bottom-b.top-h)*.42);
+    if(!autonomousMove(x,y))return;
+    const labels={
+      task_finished:"Задача завершена.",
+      task_failed:"В задаче возникла ошибка.",
+      memory_updated:"Память обновлена.",
+      contradiction_detected:"Обнаружено противоречие — нужна проверка."
+    };
+    message(labels[type]||"Появилось важное событие.");
+    clearTimeout(returnTimer);
+    returnTimer=setTimeout(()=>{if(settings.behavior==="event")position();},4500);
   }
   function position() {
     fallbackDimensions();
@@ -155,6 +238,7 @@
       }
     }catch{}
     position();
+    scheduleBehavior();
     await updateImage();
     // Quiet state explicitly controls scripted greetings, not real warning events.
     el("foxAppearanceStatus").textContent="Образ хранится локально. Правый клик по Саюри открывает отдельное окно настроек.";
@@ -199,6 +283,19 @@
     settings.enabled=true;
     position();
     await updateImage();
+    await saveSettings();
+  }
+  async function chooseBehavior(behavior){
+    if(!["stationary","wander","follow","event"].includes(behavior))return;
+    settings.behavior=behavior;
+    if(behavior==="stationary"){
+      clearBehaviorTimers();
+      persistCoordinates();
+    }else{
+      scheduleBehavior();
+      if(behavior==="follow")followActiveView();
+    }
+    fallbackDimensions();
     await saveSettings();
   }
   const actions={
@@ -299,7 +396,10 @@
   avatar.addEventListener("pointerup",e=>{
     stopPress();
     if(drag?.id===e.pointerId){
-      if(drag.moved){suppressClick=true;persistCoordinates();saveSettings();}
+      if(drag.moved){
+        suppressClick=true;lastManualMoveAt=Date.now();
+        persistCoordinates();saveSettings();
+      }
       drag=null;
     }
   });
@@ -377,12 +477,19 @@
     if(settings.enabled)position();
   });
   el("foxScale").addEventListener("change",()=>saveSettings());
+  document.querySelectorAll("[data-fox-behavior]").forEach(button=>
+    button.addEventListener("click",()=>chooseBehavior(button.dataset.foxBehavior)));
   for(const [id,kind] of [["foxModeCompact","compact"],
     ["foxModeFloating","floating"],["foxModeExpanded","expanded"]]){
     el(id).addEventListener("click",()=>chooseMode(kind));
   }
-  window.addEventListener("resize",()=>{position();if(!menu.hidden)openMenu();});
+  window.addEventListener("resize",()=>{
+    if(settings.behavior==="follow")followActiveView();else position();
+    if(!menu.hidden)openMenu();
+  });
   window.addEventListener("pagehide",()=>{
+    clearBehaviorTimers();
+    if(autoMoveTimer)clearTimeout(autoMoveTimer);
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
   });
