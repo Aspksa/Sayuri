@@ -48,11 +48,21 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.9.0",width
-                        assert page.locator("#accountProjectVersion").inner_text()=="4.9.0",width
-                        assert page.locator("#accountCoreVersion").inner_text()=="3.1.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.10.0",width
+                        assert page.locator("#accountProjectVersion").inner_text()=="4.10.0",width
+                        assert page.locator("#accountCoreVersion").inner_text()=="3.2.0",width
                         assert page.locator("#accountMemoryVersion").inner_text()=="3.0.0",width
                         assert page.locator("#accountKnowledgeVersion").inner_text()=="3.1.0",width
+                        assert page.locator("#accountInstinctVersion").inner_text()=="3.2.0",width
+                        assert page.locator("#instinctBlock").is_visible(),width
+                        assert page.locator("#instinctSummary").is_visible(),width
+                        assert page.locator("#instinctCards").is_visible(),width
+                        assert page.locator("#instinctTestButton").is_visible(),width
+                        page.wait_for_function("() => document.querySelectorAll('#instinctCards .instinct32-card').length >= 9")
+                        protection=page.locator("#instinctCards .instinct32-card[data-instinct-id='data_protection']")
+                        assert protection.is_visible(),width
+                        assert "неизменяемый" in protection.inner_text(),width
+                        assert protection.locator("[data-instinct-strength]").count()==0,width
                         assert page.locator("#libraryBlock").is_visible(),width
                         assert page.locator("#knowledgeSummary").is_visible(),width
                         assert page.locator("#knowledgeSearch").is_visible(),width
@@ -70,6 +80,11 @@ def run():
                         page.locator("#memoryScope").select_option("personal")
                         assert not page.locator("#memoryProjectField").is_visible(),width
                         assert not page.locator("#memoryTtlField").is_visible(),width
+                        page.locator("#instinctTestText").fill("Удали старые файлы проекта и отправь архив в облако")
+                        page.locator("#instinctTestButton").click()
+                        page.wait_for_function("() => document.querySelector('#instinctTestResult strong')?.textContent.includes('подтверждение')")
+                        assert "Защита данных" in page.locator("#instinctTestResult").inner_text(),width
+                        assert page.locator("#instinctEvents .instinct32-event").count()>=1,width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -200,7 +215,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.9.0')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.10.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
