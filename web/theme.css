@@ -45,13 +45,13 @@ p{margin:8px 0 14px}
 .profile-content span{font-size:12px;color:#e0c4de}
 .profile-content small{font-size:11px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
 #showAccount>.ui-icon{width:14px;flex-basis:14px;color:var(--pink)}
-#collapseSidebar{position:absolute;right:0;top:auto;bottom:-34px;width:44px;height:44px;padding:11px;border:0;background:transparent;
+#collapseSidebar{position:absolute;right:-2px;top:6px;bottom:auto;width:44px;height:44px;padding:11px;border:0;background:transparent;
  display:flex;align-items:center;justify-content:center;color:var(--subtle)}
 #collapseSidebar:hover{color:var(--pink)}
-#sayuriSidebar .sidebar-scroller{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:32px 1px 12px;
+#sayuriSidebar .sidebar-scroller{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 1px 12px;
  scrollbar-width:thin;scrollbar-color:#585166 transparent;overscroll-behavior:contain}
-.nav-pinned{position:sticky;top:0;z-index:3;background:var(--sidebar);padding:8px 0 14px;
- border-bottom:1px solid #ffffff16;box-shadow:0 8px 12px #1d1e2b9e}
+.nav-pinned{position:relative;flex:0 0 auto;background:var(--sidebar);padding:8px 0 14px;
+ border-bottom:1px solid #ffffff16}
 .nav-pinned .sidebar-section-title{margin-top:3px}
 .diagnostics-body{padding-top:12px}
 .sidebar-section-title{font-size:10px;letter-spacing:.12em;color:var(--subtle);font-weight:700;margin:12px 12px 10px}
