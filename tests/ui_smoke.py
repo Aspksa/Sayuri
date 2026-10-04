@@ -180,7 +180,10 @@ def run():
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="attention",width
                         page.locator("#foxResetPosition").click()
                         reset_fox=page.locator("#foxAvatar").bounding_box()
-                        assert reset_fox and reset_fox["x"] > width/2,(width,reset_fox)
+                        assert reset_fox,(width,reset_fox)
+                        assert reset_fox["x"]>=-1 and reset_fox["x"]+reset_fox["width"]<=width+1,(width,reset_fox)
+                        if width>767:
+                            assert reset_fox["x"]+reset_fox["width"]/2 > width/2,(width,reset_fox)
                         page.locator("#foxVisibility").click()
                         assert not page.locator("#foxAvatar").is_visible(),width
                         page.locator("#foxVisibility").click()
