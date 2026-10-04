@@ -36,6 +36,8 @@ class CompanionSettings(BaseModel):
     quiet: bool = False
     enabled: bool = True
     behavior: str = Field(default="stationary", pattern="^(stationary|wander|follow|event)$")
+    presence: str = Field(default="normal", pattern="^(calm|normal|lively)$")
+    voice_important: bool = True
     scale: float = Field(default=1.0, ge=0.7, le=1.4)
     x: float | None = Field(default=None, ge=0, le=1)
     y: float | None = Field(default=None, ge=0, le=1)
