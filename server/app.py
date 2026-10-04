@@ -18,7 +18,8 @@ DB = DATA / "sayuri.sqlite3"
 PERSONA = ROOT / "config" / "persona" / "SAYURI_PERSONA_RU_v1.0.0.json"
 WEB = ROOT / "web"
 app = FastAPI(title="Sayuri", version="0.1.0")
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
+allowed_hosts=["127.0.0.1", "localhost", "testserver"] if os.getenv("SAYURI_LOCAL_ACCESS","1")=="1" else [h.strip() for h in os.getenv("SAYURI_ALLOWED_HOSTS","127.0.0.1,localhost").split(",") if h.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 
 @contextmanager
