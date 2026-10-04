@@ -196,6 +196,7 @@ def run():
                         assert page.locator("#docsOpenWork").is_visible(),width
                         assert page.locator("#docsOpenHome").is_visible(),width
                         assert page.locator("#documentsLibrary").is_visible(),width
+                        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
                         page.locator("#docsListView").click()
                         assert page.locator("#docsListView").get_attribute("aria-pressed")=="true",width
                         assert "drive-list-mode" in (page.locator("#driveFiles").get_attribute("class") or ""),width
