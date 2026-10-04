@@ -259,6 +259,7 @@ def run():
                         page.wait_for_function("""text => Array.from(document.querySelectorAll('#knowledgeLibrary .knowledge31-result p'))
                           .some(node => node.textContent === text)""",arg=memory_text)
                         assert "Knowledge 3.1" in page.locator("#knowledgeSearchStatus").inner_text(),width
+                        page.wait_for_function("() => Number(document.querySelector('#knowledgeSourceCount')?.textContent || 0) >= 1")
                         assert int(page.locator("#knowledgeSourceCount").inner_text())>=1,width
                         page.once("dialog",lambda dialog:dialog.accept())
                         memory_card.locator("button").filter(has_text="Удалить").click()
