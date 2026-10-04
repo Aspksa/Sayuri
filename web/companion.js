@@ -157,7 +157,7 @@
     position();
     await updateImage();
     // Quiet state explicitly controls scripted greetings, not real warning events.
-    el("foxAppearanceStatus").textContent="Образ хранится локально. Правый клик по Саюри открывает меню.";
+    el("foxAppearanceStatus").textContent="Образ хранится локально. Правый клик по Саюри открывает отдельное окно настроек.";
   }
   function message(text){
     if(settings.quiet && !/ошибка|нет связи|недоступн/i.test(text))return;
@@ -234,9 +234,9 @@
     if(menu.hidden)return;
     menu.hidden=true;
     if(restore){
+      const previous=settings.enabled?menuPreviouslyFocused:null;
       const fallback=settings.enabled?avatar:el("foxSettingsOpen");
-      (menuPreviouslyFocused&&menuPreviouslyFocused.isConnected&&!menuPreviouslyFocused.hidden?
-        menuPreviouslyFocused:fallback)?.focus();
+      (previous&&previous.isConnected&&!previous.hidden?previous:fallback)?.focus();
     }
   }
   function openMenu() {
