@@ -44,6 +44,14 @@
     if(detail.type==="document_uploaded") selected={module:moduleId,
       type:recentEvent.entity_type,id:recentEvent.entity_id};
     if (detail.type==="route_changed" && selected && selected.module!==moduleId) selected=null;
+    if(["document_opened","record_selected"].includes(detail.type))
+      setMotionState("reading",{temporary:2200});
+    if(["task_started","task_progress"].includes(detail.type))
+      setMotionState("working",{temporary:1800});
+    if(detail.type==="task_finished"||detail.type==="memory_updated")
+      setMotionState("happy",{temporary:2600});
+    if(detail.type==="task_failed"||detail.type==="contradiction_detected")
+      setMotionState("attention",{temporary:3600});
     if(settings.behavior==="event" &&
       ["task_finished","task_failed","memory_updated","contradiction_detected"].includes(detail.type))
       approachEvent(detail.type);
@@ -187,8 +195,6 @@
       memory_updated:"Память обновлена.",
       contradiction_detected:"Обнаружено противоречие — нужна проверка."
     };
-    if(type==="task_finished"||type==="memory_updated")setMotionState("happy",{temporary:2600});
-    if(type==="task_failed"||type==="contradiction_detected")setMotionState("attention",{temporary:3600});
     message(labels[type]||"Появилось важное событие.");
     clearTimeout(returnTimer);
     returnTimer=setTimeout(()=>{if(settings.behavior==="event")position();},4500);
