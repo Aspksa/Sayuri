@@ -45,14 +45,20 @@ from server.personality30 import (
     record_feedback as personality_record_feedback, record_state_event as personality_record_state,
     recent_evidence as personality_recent_evidence
 )
+from server.initiative35 import (
+    INITIATIVE_VERSION, InitiativeReaction, migrate as migrate_initiative35,
+    note_turn as initiative_note_turn, register_problem as initiative_register_problem,
+    resolve_problem as initiative_resolve_problem, next_initiative as initiative_next,
+    react as initiative_react, status as initiative_status
+)
 from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = prepare_data_dir(ROOT)
 DB = DATA / "sayuri.sqlite3"
 WEB = ROOT / "web"
-PROJECT_VERSION = "4.12.0"
-CORE_VERSION = "3.4.0"
+PROJECT_VERSION = "4.13.0"
+CORE_VERSION = "3.5.0"
 app = FastAPI(title="Sayuri", version=PROJECT_VERSION)
 allowed_hosts=["127.0.0.1", "localhost", "testserver"] if os.getenv("SAYURI_LOCAL_ACCESS","1")=="1" else [h.strip() for h in os.getenv("SAYURI_ALLOWED_HOSTS","127.0.0.1,localhost").split(",") if h.strip()]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
@@ -108,6 +114,7 @@ migrate_knowledge31(db)
 migrate_instinct32(db)
 migrate_teacher33(db)
 migrate_personality30(db)
+migrate_initiative35(db)
 def hash_pw(salt, secret): return hashlib.pbkdf2_hmac("sha256", secret.encode(), bytes.fromhex(salt), 350000).hex()
 def token_hash(token): return hashlib.sha256(token.encode()).hexdigest()
 def auth(authorization: str | None):
@@ -180,6 +187,7 @@ def health():
         "knowledge_version":KNOWLEDGE_VERSION,"instinct_version":INSTINCT_VERSION,
         "teacher_understanding_version":TEACHER_UNDERSTANDING_VERSION,
         "personality_version":PERSONALITY_VERSION,"persona_base_version":BASE_PERSONA_VERSION,
+        "initiative_version":INITIATIVE_VERSION,
         "cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL")),
         "mentor_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_TEACHER_MODEL"))
     }
@@ -362,6 +370,9 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         owned_chat(c,u,cid)
         c.execute("INSERT INTO messages VALUES (?,?,?,?,?)",(incoming,cid,"user",body.text,t))
         c.execute("INSERT INTO messages VALUES (?,?,?,?,?)",(outgoing,cid,"assistant",answer,t))
+        initiative_note_turn(
+            c,user_id=u,chat_id=cid,kind=kind,owner_text=body.text,
+            assistant_text=answer,project_id=project_id,now=t)
         count=c.execute("SELECT COUNT(*) n FROM messages WHERE chat_id=?",(cid,)).fetchone()["n"]
         if count==2: c.execute("UPDATE chats SET title=? WHERE id=?",(body.text[:65],cid))
     if kind=="teacher" and os.getenv("SAYURI_AUTO_OBSERVE","1").lower() in ("1","true","yes"):
@@ -382,6 +393,68 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
             "profile_hash":effective_personality["profile_hash"]
         }
     }
+@app.get("/api/initiative/next")
+def get_next_initiative(trigger: str="periodic",project_id: str | None=None,
+                        module: str | None=None,authorization: str | None=Header(None)):
+    u=auth(authorization);now=stamp();project_id=normalize_project_id(project_id)
+    if trigger not in ("session","focus","periodic","project"):
+        raise HTTPException(400,"Неизвестный триггер инициативы")
+    if module is not None and module not in ("account","beyond","chat","files","work","home","updates"):
+        raise HTTPException(400,"Неизвестный раздел интерфейса")
+    with db() as c:
+        # Only real, currently detectable problems may create proactive warnings.
+        if project_id:
+            memories=knowledge_memories(c,user_id=u,now=now,project_id=project_id,limit=500)
+            conflicts=detect_conflicts(
+                c,user_id=u,memories=memories,now=now,project_id=project_id,limit=100)
+            pending=sum(1 for item in conflicts if item["status"]=="pending")
+            if pending:
+                initiative_register_problem(
+                    c,user_id=u,problem_key="knowledge-conflicts:"+project_id,
+                    project_id=project_id,title="в знаниях проекта есть непроверенные противоречия",
+                    detail=f"Найдено кандидатов на проверку: {pending}.",
+                    severity=4,source_ref="knowledge:conflicts",now=now)
+            else:
+                initiative_resolve_problem(
+                    c,user_id=u,problem_key="knowledge-conflicts:"+project_id,now=now)
+        lesson_errors=c.execute("""SELECT COUNT(*) n FROM teacher_lessons
+                                  WHERE user_id=? AND status='error' AND updated>?""",
+                               (u,now-86400)).fetchone()["n"]
+        if lesson_errors:
+            initiative_register_problem(
+                c,user_id=u,problem_key="teacher-learning-errors",
+                title="автоматическое понимание учителя завершалось с ошибкой",
+                detail=f"Ошибок за последние сутки: {lesson_errors}.",
+                severity=3,source_ref="teacher:lessons",now=now)
+        else:
+            initiative_resolve_problem(
+                c,user_id=u,problem_key="teacher-learning-errors",now=now)
+        snapshot=_runtime_snapshot()
+        state=(snapshot.get("sayuri") or {}).get("state")
+        if state=="attention":
+            initiative_register_problem(
+                c,user_id=u,problem_key="runtime-attention",
+                title="ядро Sayuri требует внимания",
+                detail=(snapshot.get("sayuri") or {}).get("description","")[:500],
+                severity=4,source_ref="runtime:status",now=now)
+        else:
+            initiative_resolve_problem(c,user_id=u,problem_key="runtime-attention",now=now)
+        return initiative_next(
+            c,user_id=u,now=now,trigger=trigger,project_id=project_id,module=module)
+
+@app.post("/api/initiative/{delivery_id}/reaction")
+def react_to_initiative(delivery_id: str,body:InitiativeReaction,
+                        authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        return initiative_react(
+            c,user_id=u,delivery_id=delivery_id,reaction=body.reaction,now=stamp())
+
+@app.get("/api/initiative/status")
+def get_initiative_status(authorization: str | None=Header(None)):
+    u=auth(authorization)
+    with db() as c:return initiative_status(c,user_id=u,now=stamp())
+
 @app.get("/api/instincts")
 def get_instincts(project_id: str | None=None,authorization: str | None=Header(None)):
     u=auth(authorization)
