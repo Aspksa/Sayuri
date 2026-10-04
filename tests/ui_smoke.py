@@ -48,7 +48,7 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.4.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.5.0",width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -74,6 +74,10 @@ def run():
                         page.locator("#foxBehaviorStationary").click()
                         assert page.locator("#foxBehaviorStationary").get_attribute("aria-pressed")=="true",width
                         assert page.locator("#foxMotionState").is_visible(),width
+                        assert page.locator("#foxSpatialState").is_visible(),width
+                        spatial=page.evaluate("window.SayuriSpatial.getSnapshot()")
+                        assert spatial["protected"]>=1,(width,spatial)
+                        assert spatial["viewport"]["width"]==width,(width,spatial)
                         assert page.locator("#foxAvatarFrameA").count()==1,width
                         assert page.locator("#foxAvatarFrameB").count()==1,width
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))")
@@ -92,6 +96,11 @@ def run():
                         assert page.locator("#foxAvatar").is_visible(),width
                         page.locator("#foxSettingsClose").click()
                         assert not page.locator("#foxContextMenu").is_visible(),width
+                        page.locator("#showChat").click()
+                        page.wait_for_timeout(80)
+                        spatial_chat=page.evaluate("window.SayuriSpatial.getSnapshot()")
+                        assert spatial_chat["protected"]>=2,(width,spatial_chat)
+                        page.locator("#showBeyond").click()
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
                         bg=page.evaluate("getComputedStyle(document.documentElement).backgroundColor")
@@ -112,7 +121,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.4.0')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.5.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
