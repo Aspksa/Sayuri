@@ -245,3 +245,14 @@ body.fox-quiet .fox-avatar>img{animation:none!important}
 @media(prefers-reduced-motion:reduce){
  .fox-avatar-frame{transition:none!important}
 }
+
+
+/* Static fallback for the optional sleep state when no frame pack is installed. */
+.fox-shell[data-motion-state="sleep"]:not(.fox-frame-engine) .fox-avatar>img{
+ animation:fox-sleep 4.8s ease-in-out infinite;filter:saturate(.88) brightness(.94)}
+@keyframes fox-sleep{
+ 0%,100%{transform:translateY(2px) rotate(-1deg) scaleX(var(--fox-facing))}
+ 50%{transform:translateY(5px) rotate(-1.5deg) scaleX(var(--fox-facing))}}
+@media(prefers-reduced-motion:reduce){
+ .fox-shell[data-motion-state="sleep"] .fox-avatar>img{animation:none!important}
+}
