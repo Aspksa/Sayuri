@@ -48,6 +48,7 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
+                        page.locator("#accountOpenBeyond").click()
                         installer=page.locator("#foxInstall")
                         assert installer.is_visible(),("Installer hidden",width)
                         assert page.locator("#foxPackUpload").count()==1,width
