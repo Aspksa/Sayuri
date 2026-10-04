@@ -1,0 +1,14 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+*.sqlite*
+*.log
+build/
+.dart_tool/
+mobile/.flutter-plugins*
+mobile/.packages
+mobile/.metadata
+mobile/.idea/
