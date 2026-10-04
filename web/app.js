@@ -332,7 +332,15 @@ async function loadDevelopment(){
 }
 function driveRelativeParent(path){return path.split('/').slice(0,-1).join('/')}
 function driveCard(name,kind,primary,rename,remove,context=null){
- const card=document.createElement('div');card.className='drive-file';
+ const card=document.createElement('div');card.className='drive-file';card.dataset.kind=kind;
+ if(kind==='folder'){
+  card.tabIndex=0;
+  card.title='Двойной клик или Enter — открыть папку';
+  card.addEventListener('dblclick',event=>{if(!event.target.closest('button'))primary()});
+  card.addEventListener('keydown',event=>{
+   if(event.key==='Enter'&&event.target===card){event.preventDefault();primary()}
+  });
+ }
  if(context){
   card.dataset.sayuriEntityType=context.type;
   card.dataset.sayuriEntityId=String(context.id);
@@ -353,6 +361,36 @@ function driveCard(name,kind,primary,rename,remove,context=null){
  }
  card.append(icon,title,meta,actions);return card;
 }
+function folderDisplayPath(path){
+ return path?'Мои файлы / '+path.split('/').join(' / '):'Корень хранилища';
+}
+function renderFolderHierarchy(steps,directItems,searching=false){
+ const tree=$('#documentsFolderTree');if(!tree)return;
+ tree.replaceChildren();
+ const addNode=(title,path,{active=false,child=false,depth=0}={})=>{
+  const button=document.createElement('button');
+  button.type='button';button.className='documents-folder-node'+(active?' active':'')+(child?' child':'');
+  button.style.setProperty('--folder-depth',String(Math.min(depth,6)));
+  const icon=document.createElement('span');icon.textContent=active?'▾':'▸';
+  const text=document.createElement('span');text.textContent=title;
+  button.append(icon,text);
+  button.title=folderDisplayPath(path);
+  button.onclick=()=>{if(path!==driveCurrent){$('#driveSearch').value='';loadDrive(path)}};
+  tree.append(button);
+ };
+ for(const [index,step] of steps.entries())
+  addNode(step.title,step.path,{active:index===steps.length-1,depth:index});
+ if(!searching){
+  const folders=directItems.filter(item=>item.is_dir)
+    .sort((a,b)=>a.name.localeCompare(b.name,'ru',{sensitivity:'base'}));
+  if(folders.length){
+    const label=document.createElement('div');label.className='documents-folder-children-label';
+    label.textContent='Внутри этой папки';tree.append(label);
+    for(const folder of folders)
+      addNode(folder.name,folder.path,{child:true,depth:steps.length});
+  }
+ }
+}
 async function loadDrive(relative=driveCurrent){
  const output=$('#driveFiles'),crumbs=$('#driveBreadcrumbs'),info=$('#driveInfo');
  driveCurrent=relative;output.replaceChildren();crumbs.replaceChildren();
@@ -363,12 +401,21 @@ async function loadDrive(relative=driveCurrent){
  }
  for(const [index,step] of steps.entries()){
   if(index){const sep=document.createElement('span');sep.textContent='›';crumbs.append(sep)}
-  const b=document.createElement('button');b.textContent=step.title;b.onclick=()=>loadDrive(step.path);crumbs.append(b);
+  const b=document.createElement('button');b.textContent=step.title;b.onclick=()=>{
+   $('#driveSearch').value='';loadDrive(step.path)
+  };crumbs.append(b);
  }
+ const current=steps[steps.length-1];
+ $('#documentsCurrentFolder').textContent=current.title;
+ $('#documentsCurrentPath').textContent=folderDisplayPath(relative);
+ const parentButton=$('#documentsParentFolder');
+ parentButton.disabled=!relative;
+ parentButton.onclick=()=>{if(relative){$('#driveSearch').value='';loadDrive(driveRelativeParent(relative))}};
  try{
   const res=await api('/drive/list?path='+encodeURIComponent(relative));
   const search=$('#driveSearch').value.trim();
   const items=search?(await api('/drive/search?q='+encodeURIComponent(search))).items:res.items;
+  renderFolderHierarchy(steps,res.items,Boolean(search));
   info.textContent=search?'Результаты поиска · '+items.length:'Расположение: '+res.root+' · '+items.length+' объектов';
   const count=$('#documentsObjectCount');
   if(count)count.textContent=items.length+' '+(items.length===1?'объект':'объектов');
@@ -382,7 +429,11 @@ async function loadDrive(relative=driveCurrent){
     view('home');
    },null,null,{type:'project',id:'home',module:'files'}));
   }
-  for(const item of items){
+  const displayItems=[...items].sort((a,b)=>{
+   if(Boolean(a.is_dir)!==Boolean(b.is_dir))return a.is_dir?-1:1;
+   return a.name.localeCompare(b.name,'ru',{numeric:true,sensitivity:'base'});
+  });
+  for(const item of displayItems){
    const open=item.is_dir?()=>{
     window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{
       type:'project_opened',module:'files',entity_type:'project',entity_id:item.path}}));
@@ -413,10 +464,52 @@ async function driveDownload(path,name){
   setTimeout(()=>URL.revokeObjectURL(url),1500);
  }catch(e){alert(e.message)}
 }
-$('#driveNewFolder').onclick=async()=>{
- const name=prompt('Название новой папки');
- if(!name)return;
- try{await api('/drive/folder','POST',{parent:driveCurrent,name});await loadDrive()}catch(e){alert(e.message)}
+function folderNameError(value){
+ const name=value.trim();
+ if(!name)return 'Введите название папки.';
+ if(name==='.'||name==='..')return 'Такое название использовать нельзя.';
+ if(/[<>:"/\\|?*\u0000-\u001F]/.test(name))return 'Название содержит недопустимый символ.';
+ if(/[. ]$/.test(name))return 'Название не должно заканчиваться точкой или пробелом.';
+ if(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i.test(name))
+  return 'Это имя зарезервировано системой Windows.';
+ return '';
+}
+function openNewFolderDialog(){
+ const dialog=$('#newFolderDialog'),input=$('#newFolderName'),error=$('#newFolderError');
+ $('#newFolderParent').textContent=folderDisplayPath(driveCurrent);
+ input.value='';input.removeAttribute('aria-invalid');error.textContent='';
+ if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+ requestAnimationFrame(()=>input.focus());
+}
+function closeNewFolderDialog(){
+ const dialog=$('#newFolderDialog');
+ if(typeof dialog.close==='function'&&dialog.open)dialog.close();else dialog.removeAttribute('open');
+}
+$('#driveNewFolder').onclick=openNewFolderDialog;
+$('#newFolderClose').onclick=closeNewFolderDialog;
+$('#newFolderCancel').onclick=closeNewFolderDialog;
+$('#newFolderName').oninput=()=>{
+ const input=$('#newFolderName'),error=$('#newFolderError'),problem=folderNameError(input.value);
+ error.textContent=problem;input.setAttribute('aria-invalid',String(Boolean(problem)));
+};
+$('#newFolderForm').onsubmit=async event=>{
+ event.preventDefault();
+ const input=$('#newFolderName'),error=$('#newFolderError'),submit=$('#newFolderSubmit');
+ const name=input.value.trim(),problem=folderNameError(name);
+ if(problem){error.textContent=problem;input.setAttribute('aria-invalid','true');input.focus();return}
+ submit.disabled=true;error.textContent='';
+ try{
+  const result=await api('/drive/folder','POST',{parent:driveCurrent,name});
+  closeNewFolderDialog();
+  await loadDrive(driveCurrent);
+  $('#documentsActionStatus').textContent='Папка «'+name+'» создана в '+folderDisplayPath(driveCurrent)+'.';
+  const created=[...document.querySelectorAll('#driveFiles [data-sayuri-entity-id]')]
+    .find(node=>node.dataset.sayuriEntityId===result.path);
+  created?.classList.add('just-created');
+  created?.scrollIntoView({block:'nearest',behavior:'smooth'});
+ }catch(e){
+  error.textContent=e.message;input.setAttribute('aria-invalid','true');input.focus();
+ }finally{submit.disabled=false}
 };
 $('#driveUpload').onclick=()=>$('#driveFileInput').click();
 $('#driveFileInput').onchange=async()=>{
@@ -436,6 +529,9 @@ $('#driveSearch').oninput=()=>{
  clearTimeout(driveTimer);
  driveTimer=setTimeout(()=>loadDrive(driveCurrent),280);
 };
+$('#newFolderDialog').addEventListener('click',event=>{
+ if(event.target===$('#newFolderDialog'))closeNewFolderDialog();
+});
 
 async function loadBuildInfo(){
  const info=$('#runningVersion'),folder=$('#runningFolder');
