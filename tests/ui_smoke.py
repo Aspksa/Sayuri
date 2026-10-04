@@ -55,10 +55,11 @@ def run():
                         assert page.locator("#accountKnowledgeVersion").inner_text()=="3.1.0",width
                         assert page.locator("#accountInstinctVersion").inner_text()=="3.2.0",width
                         assert page.locator("#instinctBlock").is_visible(),width
+                        assert page.locator("#instinctTestButton").is_visible(),width
+                        page.wait_for_function("() => document.querySelector('#instinctSummary').children.length >= 5")
+                        page.wait_for_function("() => document.querySelectorAll('#instinctCards .instinct32-card').length >= 9")
                         assert page.locator("#instinctSummary").is_visible(),width
                         assert page.locator("#instinctCards").is_visible(),width
-                        assert page.locator("#instinctTestButton").is_visible(),width
-                        page.wait_for_function("() => document.querySelectorAll('#instinctCards .instinct32-card').length >= 9")
                         protection=page.locator("#instinctCards .instinct32-card[data-instinct-id='data_protection']")
                         assert protection.is_visible(),width
                         assert "неизменяемый" in protection.inner_text(),width
