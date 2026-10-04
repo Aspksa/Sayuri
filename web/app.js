@@ -92,3 +92,18 @@ $('#fileForm').onsubmit=async e=>{e.preventDefault();const f=$('#file').files[0]
 (async()=>{if(token){try{await api('/chats');$('#gate').classList.add('hidden');await refresh()}catch{token='';sessionStorage.removeItem('sayuri_token')}}})();
 
 if ('serviceWorker' in navigator && location.protocol!=='file:') {window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
+
+$('#cloudModels').onclick=async()=>{
+  const target=$('#cloudModelList');
+  target.textContent='Получаем список моделей…';
+  try{
+    const data=await api('/cloud/models');
+    target.replaceChildren();
+    if(!data.models.length){target.textContent='Доступных моделей не найдено.';return}
+    for(const id of data.models){
+      const row=document.createElement('div');row.className='line';
+      const name=document.createElement('span');name.textContent=id;
+      row.append(name);target.append(row);
+    }
+  }catch(e){target.textContent=e.message}
+};
