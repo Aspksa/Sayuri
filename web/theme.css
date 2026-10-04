@@ -274,3 +274,68 @@ body.sidebar-collapsed .main-nav button .ui-icon,body.sidebar-collapsed #showUpd
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;
  animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* SAYURI interface 4.0: distinct owner dashboard, BEYOND studio and honest ZIP updates. */
+.beyond-menu-sigil{flex:0 0 19px;width:19px;font-size:19px;text-align:center;line-height:1;color:var(--pink)}
+#showBeyond{border:1px solid #74516c!important;background:#35263a!important;color:#f9dcee!important;
+  margin:1px 0 8px;min-height:49px!important}
+#showBeyond:hover,#showBeyond.current{background:#573959!important}
+.section-heading{margin-bottom:20px}
+.kicker{display:block;font-weight:750;letter-spacing:.14em;font-size:11px;color:var(--pink);margin-bottom:8px}
+.section-heading h2,.account-main-heading h2{font-size:clamp(24px,2.5vw,32px);letter-spacing:-.035em;margin:0 0 10px}
+.section-heading p,.account-main-heading>p{max-width:720px;color:var(--muted);font-size:13px}
+.account-main-heading{padding:26px 28px;border-radius:21px;
+ background:linear-gradient(120deg,#39293e,#262437 68%,#222734);
+ border:1px solid #6f526e;margin-bottom:18px}
+.version-strip{display:flex;flex-wrap:wrap;gap:10px;margin:15px 0}
+.version-strip>span{padding:9px 13px;border-radius:11px;border:1px solid #78607d;background:#241e31;color:#eddfeb;font-size:13px}
+.version-strip strong{color:#bb9eb8;margin-right:7px;font-size:12px}
+.version-strip b{color:#ffbddd}
+.account-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.account-action{display:flex;align-items:flex-start;flex-direction:column;gap:8px;min-height:123px;
+ padding:17px 20px;border:1px solid #4a4054;border-radius:15px;background:#242336;
+ text-align:left;transition:border-color .16s,transform .16s,background .16s}
+.account-action:hover{border-color:#bd94bf;background:#34283f;transform:translateY(-2px)}
+.account-action strong{font-size:16px;color:#f4e8f4}
+.account-action span{font-size:13px;color:#beb2cc;line-height:1.5}
+.account-action small{margin-top:auto;color:#ffd2eb}
+.account-action.main-action{background:linear-gradient(120deg,#5b3b59,#352844);
+ border-color:#b589ac}
+.account-action.main-action strong{color:#ffe1ec}
+#accountView .account-quicknav{margin:18px 0 20px}
+.beyond-settings{max-width:950px}
+#beyondView .cabinet-hero{margin:16px 0 18px}
+#beyondView #characterBlock{padding:0;background:transparent;border:0}
+#beyondView #characterBlock>.hint{padding-left:5px}
+#beyondView .fox-entry-bar{margin-bottom:16px}
+.beyond-note{color:var(--muted);font-size:12px;padding:12px 0}
+.subtle-cta{background:#352b3c;border:1px solid #75607a;color:#f3e5f1}
+.updates-settings{max-width:1000px}
+.update-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.settings .update-info,.settings .update-instructions{margin:0;padding:23px 24px;border-radius:17px;
+ border:1px solid #4b4155;background:#222234}
+.update-info-grid .update-info:last-child{background:linear-gradient(125deg,#2f2741,#242438)}
+.update-info h3{color:#ffe0f0;font-size:16px}
+.update-info>p{font-size:13px}
+.update-info strong{color:#ecd1e9}
+.monospace-path{padding:13px;border:1px solid #58516a;border-radius:10px;background:#171824;
+ color:#c9dafb;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;
+ overflow-wrap:anywhere;user-select:text}
+.settings .update-instructions{margin-top:16px}
+.update-instructions li{margin:10px 0;line-height:1.65;color:#dad2e1}
+.update-instructions ol{margin:10px 0;padding-left:22px}
+.prepared-update{padding:17px;margin:15px 0;border:1px solid #78b697;background:#213b34;
+ border-radius:13px;color:#e2fff1;overflow-wrap:anywhere}
+.prepared-update strong{display:block;margin-bottom:11px}
+.prepared-update .monospace-path{background:#15251f}
+#updateStatus{line-height:1.65;color:#e2d6e6}
+@media(max-width:767px){
+ .account-main-heading{padding:19px 17px}
+ .account-action-grid,.update-info-grid{grid-template-columns:1fr}
+ .account-action{min-height:94px;padding:15px}
+ .version-strip>span{width:100%}
+ .settings .update-info,.settings .update-instructions{padding:17px 15px}
+ #showBeyond{min-height:45px!important}
+ body.sidebar-collapsed #showBeyond .beyond-menu-sigil{display:inline-flex}
+}
