@@ -1,11 +1,12 @@
 {
-  "ui_version": "4.9.0",
+  "ui_version": "4.10.0",
   "persona_version": "2.0.0",
   "character_product": "SAYURI BEYOND",
-  "release_notes": "Sayuri Knowledge 3.1: локальный индекс похожести, смысловой поиск по подтверждённой памяти, граф явных связей, происхождение знаний и кандидаты противоречий с ручной проверкой.",
+  "release_notes": "Sayuri Instinct 3.2: детерминированные внутренние приоритеты до рассуждения, неизменяемые правила защиты данных/честности/приоритета владельца, пользовательские и проектные переопределения, локальная диагностика и интеграция с ответами Sayuri.",
   "release_date": "2026-10-05",
-  "project_version": "4.9.0",
-  "core_version": "3.1.0",
+  "project_version": "4.10.0",
+  "core_version": "3.2.0",
   "memory_version": "3.0.0",
-  "knowledge_version": "3.1.0"
+  "knowledge_version": "3.1.0",
+  "instinct_version": "3.2.0"
 }
