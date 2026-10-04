@@ -24,12 +24,12 @@ async function refresh(){
   $('#cloud').textContent=state.mentor_configured?'Cloud.ru: проверка состояния…':'Cloud.ru: не настроено';
 }
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
-async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();const payload={text};if(activeProjectMemoryId)payload.project_id=activeProjectMemoryId;await api('/chats/'+active+'/send','POST',payload);$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
+async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();const payload={text};if(activeProjectMemoryId)payload.project_id=activeProjectMemoryId;const result=await api('/chats/'+active+'/send','POST',payload);if(result.personality)window.dispatchEvent(new CustomEvent('sayuri:personality',{detail:result.personality}));$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
 async function account(){
  loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();loadMemory3();loadMemoryProjectOptions();loadKnowledge31();loadInstinct32();
  try{
   const [p,stats]=await Promise.all([api('/persona'),api('/learning/stats')]);
-  $('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');
+  $('#persona').textContent=p.name+' · Личность v'+p.version+' · каноническая база v'+p.base_version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');
   $('#stats').textContent='Чаты: '+stats.chats+' · Память: '+stats.memories+' · Отзывы: '+stats.feedback+' · Файлы: '+stats.documents;
  }catch(e){fail(e)}
 }
@@ -1281,11 +1281,13 @@ async function loadBuildInfo(){
  try{
   const data=await api('/build/info');
   const projectVersion=data.project_version||data.ui_version;
-  const coreVersion=data.core_version||'3.3.0',memoryVersion=data.memory_version||'3.0.0',
+  const coreVersion=data.core_version||'3.4.0',memoryVersion=data.memory_version||'3.0.0',
         knowledgeVersion=data.knowledge_version||'3.1.0',instinctVersion=data.instinct_version||'3.2.0',
-        teacherUnderstandingVersion=data.teacher_understanding_version||'3.3.0';
-  info.textContent='Проект '+projectVersion+' · Ядро '+coreVersion+' · Память '+memoryVersion+
-    ' · Знания '+knowledgeVersion+' · Инстинкт '+instinctVersion+
+        teacherUnderstandingVersion=data.teacher_understanding_version||'3.3.0',
+        personalityVersion=data.personality_version||data.persona_version||'3.0.0',
+        personaBaseVersion=data.persona_base_version||'2.0.0';
+  info.textContent='Проект '+projectVersion+' · Ядро '+coreVersion+' · Личность '+personalityVersion+
+    ' · Память '+memoryVersion+' · Знания '+knowledgeVersion+' · Инстинкт '+instinctVersion+
     ' · Понимание учителя '+teacherUnderstandingVersion+' · Интерфейс '+data.ui_version;
   folder.textContent=data.running_folder;
   $('#accountUiVersion').textContent=data.ui_version;
@@ -1294,6 +1296,8 @@ async function loadBuildInfo(){
   $('#accountMemoryVersion').textContent=memoryVersion;
   $('#accountKnowledgeVersion').textContent=knowledgeVersion;
   $('#accountInstinctVersion').textContent=instinctVersion;
+  $('#accountPersonalityVersion').textContent=personalityVersion;
+  $('#accountPersonaBaseVersion').textContent=personaBaseVersion;
   $('#runningVersionNote').textContent='Этот путь принадлежит серверу, который сейчас отвечает браузеру. Если вы скачали ZIP в другую папку, дизайн здесь не изменится.';
  }catch(e){
   info.textContent='Версия сервера не определена';
