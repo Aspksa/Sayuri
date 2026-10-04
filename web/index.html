@@ -64,7 +64,7 @@ button,textarea,input,select{font-family:inherit}button:focus-visible,input:focu
 #sayuriSidebar .sidebar-fixed-bottom{flex:0 0 auto;padding-top:10px;border-top:1px solid var(--line);background:var(--side-bg)}
 #sayuriSidebar .sidebar-repo{display:block;font-size:11px;color:var(--text-dim);padding:2px 12px 4px}
 #drawerBackdrop{display:none}
-.layout>main{flex:1;min-width:0;height:100dvh}
+.layout>main{flex:1;min-width:0;height:100dvh}#title{font-size:22px;font-weight:600;line-height:1.3;min-width:0;overflow-wrap:anywhere}#cloud{font-size:12px;max-width:190px;overflow-wrap:anywhere}
 #menu{width:44px;min-width:44px;height:44px;align-items:center;justify-content:center}
 body.sidebar-collapsed #sayuriSidebar{width:72px;flex-basis:72px}
 body.sidebar-collapsed #sayuriSidebar .profile-content,body.sidebar-collapsed #sayuriSidebar #showAccount>.ui-icon,
@@ -92,6 +92,8 @@ body.sidebar-collapsed #sayuriSidebar .main-nav button>.ui-icon,body.sidebar-col
  #drawerBackdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:block;opacity:0;pointer-events:none;transition:opacity 260ms}
  body.open #drawerBackdrop{opacity:1;pointer-events:auto}
  #menu{display:flex}
+ #title{font-size:16px}
+ #cloud{font-size:11px;max-width:120px}
  #collapseSidebar{display:none}
  body.sidebar-collapsed #sayuriSidebar .profile-content,body.sidebar-collapsed #sayuriSidebar #showAccount>.ui-icon,
  body.sidebar-collapsed #sayuriSidebar .sidebar-section-title,body.sidebar-collapsed #sayuriSidebar .diagnostic-text,
