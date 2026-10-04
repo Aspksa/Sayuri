@@ -87,6 +87,7 @@ def test_animation_pack_is_private_validated_and_readable(tmp_path,monkeypatch):
         assert data["installed"] is True
         assert data["states"]["idle"]["frames"]==2
         assert data["states"]["walk"]["frames"]==1
+        # Frame names are normalized server-side so metadata and frame URLs stay contiguous.
         frame=c.get("/api/companion/animation/idle/1",headers=h)
         assert frame.status_code==200 and frame.content==png()
         bad=io.BytesIO()
