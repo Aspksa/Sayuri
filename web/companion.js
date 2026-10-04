@@ -321,6 +321,7 @@
   el("foxPackUpload").addEventListener("change",async e=>{
     const pack=e.target.files[0];
     if(!pack)return;
+    el("foxPackName").textContent=pack.name;
     el("foxAppearanceStatus").textContent="Проверяю и загружаю комплект образов…";
     const form=new FormData();form.append("pack",pack);
     try{
@@ -361,6 +362,12 @@
     if(!settings.enabled){closeMenu();panel.hidden=true;}
     else position();
     await saveSettings();
+  });
+  el("foxPickPack").addEventListener("click",()=>el("foxPackUpload").click());
+  el("foxResetPosition").addEventListener("click",async()=>{
+    settings.x=null;settings.y=null;settings.scale=1;settings.enabled=true;
+    position();await saveSettings();
+    el("foxAppearanceStatus").textContent="Саюри возвращена в правый нижний угол.";
   });
   el("foxJumpInstall").addEventListener("click",()=>{
     const target=el("foxInstall");
