@@ -1281,10 +1281,12 @@ async function loadBuildInfo(){
  try{
   const data=await api('/build/info');
   const projectVersion=data.project_version||data.ui_version;
-  const coreVersion=data.core_version||'3.2.0',memoryVersion=data.memory_version||'3.0.0',
-        knowledgeVersion=data.knowledge_version||'3.1.0',instinctVersion=data.instinct_version||'3.2.0';
+  const coreVersion=data.core_version||'3.3.0',memoryVersion=data.memory_version||'3.0.0',
+        knowledgeVersion=data.knowledge_version||'3.1.0',instinctVersion=data.instinct_version||'3.2.0',
+        teacherUnderstandingVersion=data.teacher_understanding_version||'3.3.0';
   info.textContent='Проект '+projectVersion+' · Ядро '+coreVersion+' · Память '+memoryVersion+
-    ' · Знания '+knowledgeVersion+' · Инстинкт '+instinctVersion+' · Интерфейс '+data.ui_version;
+    ' · Знания '+knowledgeVersion+' · Инстинкт '+instinctVersion+
+    ' · Понимание учителя '+teacherUnderstandingVersion+' · Интерфейс '+data.ui_version;
   folder.textContent=data.running_folder;
   $('#accountUiVersion').textContent=data.ui_version;
   $('#accountProjectVersion').textContent=projectVersion;
