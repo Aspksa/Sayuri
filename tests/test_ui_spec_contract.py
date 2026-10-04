@@ -6,6 +6,7 @@ from html.parser import HTMLParser
 ROOT=Path(__file__).resolve().parents[1]
 SPEC=json.loads((ROOT/"docs/SAYURI_MENU_UI_SPEC.json").read_text(encoding="utf-8"))
 HTML=(ROOT/"web/index.html").read_text(encoding="utf-8")
+CSS=(ROOT/"web/theme.css").read_text(encoding="utf-8")
 SIDEBAR=(ROOT/"web/sidebar.js").read_text(encoding="utf-8")
 SERVER=(ROOT/"server/app.py").read_text(encoding="utf-8")
 
@@ -23,14 +24,14 @@ class Tags(HTMLParser):
 def test_design_tokens_match_supplied_json():
     colors=SPEC["design_tokens"]["colors"]
     for value in colors.values():
-        assert value in HTML, "Missing design color "+value
+        assert value.lower() in CSS.lower(), "Missing design color "+value
     for size in (280,72,260):
-        assert (str(size)+"px") in HTML
-    assert "min(88vw,320px)" in HTML or "min(88vw, 320px)" in HTML
-    assert "rgba(0,0,0,.55)" in HTML or "rgba(0,0,0,0.55)" in HTML
-    assert "env(safe-area-inset-top)" in HTML
-    assert "env(safe-area-inset-bottom)" in HTML
-    assert "prefers-reduced-motion" in HTML
+        assert (str(size)+"px") in CSS
+    assert "min(88vw,320px)" in CSS or "min(88vw, 320px)" in CSS
+    assert "rgba(0,0,0,.55)" in CSS or "rgba(0,0,0,0.55)" in CSS
+    assert "env(safe-area-inset-top)" in CSS
+    assert "env(safe-area-inset-bottom)" in CSS
+    assert "prefers-reduced-motion" in CSS
 
 
 def test_all_sections_and_layout_zones_exist():
