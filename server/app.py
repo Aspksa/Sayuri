@@ -38,14 +38,21 @@ from server.teacher33 import (
     lesson_context as teacher_lesson_context,
     summary as teacher_learning_summary
 )
+from server.personality30 import (
+    PERSONALITY_VERSION, BASE_PERSONA_VERSION, migrate as migrate_personality30,
+    identity_core as personality_identity_core, effective_profile as personality_profile,
+    working_state as personality_working_state, context_text as personality_context_text,
+    record_feedback as personality_record_feedback, record_state_event as personality_record_state,
+    recent_evidence as personality_recent_evidence
+)
 from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = prepare_data_dir(ROOT)
 DB = DATA / "sayuri.sqlite3"
 WEB = ROOT / "web"
-PROJECT_VERSION = "4.11.0"
-CORE_VERSION = "3.3.0"
+PROJECT_VERSION = "4.12.0"
+CORE_VERSION = "3.4.0"
 app = FastAPI(title="Sayuri", version=PROJECT_VERSION)
 allowed_hosts=["127.0.0.1", "localhost", "testserver"] if os.getenv("SAYURI_LOCAL_ACCESS","1")=="1" else [h.strip() for h in os.getenv("SAYURI_ALLOWED_HOSTS","127.0.0.1,localhost").split(",") if h.strip()]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
@@ -100,6 +107,7 @@ migrate_memory3(db)
 migrate_knowledge31(db)
 migrate_instinct32(db)
 migrate_teacher33(db)
+migrate_personality30(db)
 def hash_pw(salt, secret): return hashlib.pbkdf2_hmac("sha256", secret.encode(), bytes.fromhex(salt), 350000).hex()
 def token_hash(token): return hashlib.sha256(token.encode()).hexdigest()
 def auth(authorization: str | None):
@@ -171,6 +179,7 @@ def health():
         "core_version":CORE_VERSION,"memory_version":MEMORY_VERSION,
         "knowledge_version":KNOWLEDGE_VERSION,"instinct_version":INSTINCT_VERSION,
         "teacher_understanding_version":TEACHER_UNDERSTANDING_VERSION,
+        "personality_version":PERSONALITY_VERSION,"persona_base_version":BASE_PERSONA_VERSION,
         "cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL")),
         "mentor_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_TEACHER_MODEL"))
     }
@@ -298,6 +307,7 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
             c,user_id=u,now=stamp(),project_id=project_id,limit=80)
     context=system_prompt()
     persona_data=load_persona()
+    mode="personal"
     with db() as c:
         pref=c.execute("SELECT mode,intimacy FROM preferences WHERE user_id=?",(u,)).fetchone()
     if pref:
@@ -324,8 +334,17 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         instinct_context=instinct_context_text(instinct_result)
         if instinct_context:context+="\n"+instinct_context
         with db() as c:
+            effective_personality=personality_profile(c,user_id=u,persona=persona_data)
+            personality_state=personality_working_state(
+                mode=mode,instinct_level=instinct_result["level"],operation="conversation")
+            personality_record_state(
+                c,user_id=u,state=personality_state,mode=mode,project_id=project_id,
+                profile_hash=effective_personality["profile_hash"],now=stamp())
             selected_teacher_lessons=teacher_lesson_context(
                 c,user_id=u,query=body.text,project_id=project_id,limit=5)
+        personality_context=personality_context_text(
+            persona=persona_data,profile=effective_personality,state=personality_state)
+        if personality_context:context+="\n"+personality_context
         if selected_knowledge:
             context+="\n"+selected_knowledge
         else:
@@ -356,6 +375,11 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
             "requires_confirmation":instinct_result["requires_confirmation"],
             "needs_verification":instinct_result["needs_verification"],
             "triggers":[{"id":item["id"],"strength":item["strength"]} for item in instinct_result["triggers"]]
+        },
+        "personality":None if kind=="teacher" else {
+            "version":PERSONALITY_VERSION,
+            "state":personality_state["id"],
+            "profile_hash":effective_personality["profile_hash"]
         }
     }
 @app.get("/api/instincts")
@@ -563,12 +587,14 @@ def knowledge_sources(project_id: str | None=None,authorization: str | None=Head
 
 @app.post("/api/feedback")
 def feedback(body: FeedbackIn, authorization: str | None = Header(None)):
-    u=auth(authorization)
+    u=auth(authorization);now=stamp()
     with db() as c:
         ok=c.execute("SELECT 1 FROM messages m JOIN chats ch ON ch.id=m.chat_id WHERE m.id=? AND ch.user_id=? AND m.role='assistant'",(body.message_id,u)).fetchone()
         if not ok: raise HTTPException(404,"Ответ не найден")
-        c.execute("INSERT INTO feedback VALUES (?,?,?,?,?,?)",(uuid.uuid4().hex,u,body.message_id,body.rating,body.correction,stamp()))
-    return {"ok":True}
+        c.execute("INSERT INTO feedback VALUES (?,?,?,?,?,?)",(uuid.uuid4().hex,u,body.message_id,body.rating,body.correction,now))
+        signals=personality_record_feedback(
+            c,user_id=u,correction=body.correction,source_ref="message:"+body.message_id,now=now)
+    return {"ok":True,"personality_signals":[trait for trait,_ in signals]}
 @app.get("/api/learning/stats")
 def stats(authorization: str | None = Header(None)):
     u=auth(authorization)
@@ -593,9 +619,13 @@ def documents(authorization: str | None=Header(None)):
     with db() as c:return [dict(x) for x in c.execute("SELECT id,name,created FROM documents WHERE user_id=?",(u,))]
 @app.get("/api/persona")
 def persona(authorization: str | None=Header(None)):
-    auth(authorization)
+    u=auth(authorization)
     p=load_persona()
-    return {"name":p["identity"]["display_name_ru"],"version":p["persona_version"],
+    with db() as c:profile=personality_profile(c,user_id=u,persona=p)
+    core=personality_identity_core(p)
+    return {"name":p["identity"]["display_name_ru"],"version":PERSONALITY_VERSION,
+            "base_version":p["persona_version"],"identity_hash":core["identity_hash"],
+            "adaptive_traits":profile["traits"],
             "modes":[m["name"] for m in p["modes"]],
             "sections":len(p),"dialogues":len(p["dialogues"]),
             "messages":sum(len(d["messages"]) for d in p["dialogues"]),
@@ -607,6 +637,21 @@ def persona(authorization: str | None=Header(None)):
             "rituals":len(p["ritual_engine"]["records"]),
             "lore_titles":[str(ch.get("title_ru") or ch.get("title") or ch.get("name") or ch.get("id") or "Глава")[:150] for ch in p["lore_chapters"]["chapters"]],
             "ritual_titles":[str(item.get("title_ru") or item.get("title") or item.get("name") or item.get("id") or "Ритуал")[:150] for item in p["ritual_engine"]["records"]]}
+
+@app.get("/api/personality")
+def personality_snapshot(authorization: str | None=Header(None)):
+    u=auth(authorization);p=load_persona()
+    with db() as c:
+        profile=personality_profile(c,user_id=u,persona=p)
+        evidence=personality_recent_evidence(c,user_id=u,limit=30)
+    return {
+        "version":PERSONALITY_VERSION,
+        "base_persona_version":p["persona_version"],
+        "identity":personality_identity_core(p),
+        "profile":profile,
+        "recent_evidence":evidence,
+        "raw_feedback_stored_in_personality":False
+    }
 
 
 # Owner-granted read-only project explorer.
