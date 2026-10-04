@@ -131,6 +131,8 @@ main>header{height:74px;min-height:74px;display:flex;align-items:center;gap:12px
 .hero-actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 12px}
 .hero-actions button{border:1px solid #765577;background:#3d2c4b;font-size:12px;border-radius:10px}
 .hero-actions button:hover{background:#594162}
+#goChat{background:var(--pink);color:#2b2030;border-color:var(--pink);font-weight:700}
+#goChat:hover{background:#ffd0e8}
 .account-quicknav{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 16px}
 .account-quicknav button{border:1px solid var(--border);background:#252431;padding:10px 15px;border-radius:10px;
  font-size:12px;color:#dac8dd}
@@ -227,8 +229,8 @@ body.sidebar-collapsed .main-nav button .ui-icon,body.sidebar-collapsed #showUpd
  body.open #drawerBackdrop{opacity:1;pointer-events:auto}
  #menu{display:flex}
  main>header{padding:0 13px;gap:9px;height:64px;min-height:64px}
- #title{font-size:15px}
- #cloud{font-size:10px;max-width:110px}
+ #title{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ #cloud{display:none}
  .settings{padding:19px 16px 38px}
  .settings section{padding:18px 16px}
  .cabinet-hero{grid-template-columns:1fr;gap:5px;padding:22px 19px;text-align:center}
