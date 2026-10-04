@@ -396,6 +396,7 @@
     document_opened:0,record_selected:0,project_opened:0,
     task_started:0,task_progress:0
   };
+  const voiceImportantEvents=new Set(["task_failed","contradiction_detected","notification_shown"]);
   const presenceCooldown={
     task_failed:12000,contradiction_detected:15000,notification_shown:20000,
     task_finished:20000,memory_updated:30000,document_uploaded:35000,
@@ -506,7 +507,7 @@
     presenceDedupe.set(result.key||presenceKey(detail),now);
     presenceSequence++;
     const importance=result.importance??eventImportance[detail?.type]??0;
-    if(voice||importance>=3)speakImportant(text,importance,{force});
+    if(voice||voiceImportantEvents.has(detail?.type))speakImportant(text,importance,{force});
     return true;
   }
 
