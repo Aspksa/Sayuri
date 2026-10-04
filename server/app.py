@@ -25,6 +25,16 @@ allowed_hosts=["127.0.0.1", "localhost", "testserver"] if os.getenv("SAYURI_LOCA
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 
+@app.middleware("http")
+async def measured_backend(request: Request, call_next):
+    started=time.monotonic()
+    try:
+        return await call_next(request)
+    finally:
+        # Request processing latency only; never infer network speed from it.
+        if request.url.path!="/api/runtime/events":
+            runtime.record_backend_latency(round((time.monotonic()-started)*1000))
+
 @contextmanager
 def db():
     conn = sqlite3.connect(DB, timeout=15)
