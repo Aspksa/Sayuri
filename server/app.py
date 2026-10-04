@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
+from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.getenv("SAYURI_DATA_DIR", str(ROOT / "data"))).resolve()
@@ -564,3 +565,72 @@ async def observe_teacher_exchange(user_id: str, chat_id: str, question: str, an
     except (HTTPException,ValueError,KeyError,TypeError,sqlite3.Error):
         # An unavailable observer must never break an already completed chat response.
         return
+
+CLOUD_RU_OFFICIAL_BASE="https://foundation-models.api.cloud.ru/v1"
+
+def require_local_settings(request: Request) -> None:
+    """Settings that change API credentials must be limited to the local desktop."""
+    hostname=request.url.hostname
+    remote=request.client.host if request.client else ""
+    host_header=request.headers.get("host","").split(":")[0].lower()
+    origin=request.headers.get("origin")
+    if (os.getenv("SAYURI_LOCAL_ACCESS","1")!="1" or
+        remote not in ("127.0.0.1","::1") or
+        hostname not in ("127.0.0.1","localhost") or
+        host_header not in ("127.0.0.1","localhost") or
+        (origin and origin.rstrip("/")!=str(request.base_url).rstrip("/")) or
+        request.headers.get("sec-fetch-site")=="cross-site"):
+        raise HTTPException(403,"Изменение ключа разрешено только с этого компьютера")
+
+class CloudConfigIn(BaseModel):
+    api_key: str | None = Field(default=None,max_length=2048)
+    mentor_model: str | None = Field(default=None,max_length=200)
+    sayuri_model: str | None = Field(default=None,max_length=200)
+
+@app.get("/api/cloud/config")
+def cloud_config(request: Request,authorization: str | None = Header(None)):
+    auth(authorization)
+    require_local_settings(request)
+    return {
+        "key_configured":bool(os.getenv("CLOUD_RU_API_KEY","").strip()),
+        "base_url":CLOUD_RU_OFFICIAL_BASE,
+        "mentor_model":os.getenv("CLOUD_RU_TEACHER_MODEL",""),
+        "sayuri_model":os.getenv("CLOUD_RU_MODEL",""),
+        "status":"Подключено" if (os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_TEACHER_MODEL")) else "Cloud.ru не настроен"
+    }
+
+@app.put("/api/cloud/config")
+def save_cloud_config(body: CloudConfigIn,request: Request,authorization: str | None = Header(None)):
+    auth(authorization)
+    require_local_settings(request)
+    from re import fullmatch
+    updates={"CLOUD_RU_BASE_URL":CLOUD_RU_OFFICIAL_BASE}
+    if body.api_key is not None and body.api_key.strip():
+        key=body.api_key.strip()
+        if len(key)<12 or any(ch.isspace() for ch in key):
+            raise HTTPException(400,"Некорректный формат API-ключа")
+        updates["CLOUD_RU_API_KEY"]=key
+    if body.mentor_model is not None:
+        val=body.mentor_model.strip()
+        if val and not fullmatch(r"[A-Za-z0-9._/-]{1,200}",val):
+            raise HTTPException(400,"Недопустимый ID модели-наставника")
+        updates["CLOUD_RU_TEACHER_MODEL"]=val
+    if body.sayuri_model is not None:
+        val=body.sayuri_model.strip()
+        if val and not fullmatch(r"[A-Za-z0-9._/-]{1,200}",val):
+            raise HTTPException(400,"Недопустимый ID модели Sayuri")
+        updates["CLOUD_RU_MODEL"]=val
+    target=ROOT/".env"
+    target.touch(mode=0o600,exist_ok=True)
+    # Never log, echo, or return key values; local settings live outside Git.
+    try:
+        for name,value in updates.items():
+            set_key(str(target),name,value,quote_mode="always")
+        if os.name!="nt":target.chmod(0o600)
+    except OSError as exc:
+        raise HTTPException(500,"Не удалось сохранить закрытые настройки") from exc
+    os.environ.update(updates)
+    return {"ok":True,"key_configured":bool(os.getenv("CLOUD_RU_API_KEY")),
+            "mentor_model":os.getenv("CLOUD_RU_TEACHER_MODEL",""),
+            "sayuri_model":os.getenv("CLOUD_RU_MODEL",""),
+            "status":"Настроено" if os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_TEACHER_MODEL") else "Требуется ключ и модель наставника"}
