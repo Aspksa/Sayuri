@@ -1,4 +1,4 @@
-/* BEYOND 2.4 — frame animation engine with graceful static-image fallback. */
+/* BEYOND 2.5 — animation engine plus spatial awareness and collision avoidance. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
@@ -24,6 +24,8 @@
   let animationMeta={installed:false,states:{}},animationTimer=null,animationRequest=0,activeFrameLayer=0;
   const animationCache=new Map(),animationUrls=new Set();
   let sleepWatchTimer=null,lastInteractionAt=Date.now();
+  let spatialObserver=null,spatialResizeObserver=null,spatialReflowTimer=null;
+  const spatialPadding=12;
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
   const bound = (v,a,b) => Math.min(b,Math.max(a,v));
@@ -190,6 +192,15 @@
   });
   window.SayuriContext = Object.freeze({getCurrent:()=>({module:moduleName,selected,
     latestEvent:recentEvent})});
+  window.SayuriSpatial = Object.freeze({
+    getSnapshot:()=>({
+      ...updateSpatialStatus(),
+      activeView:moduleName,
+      behavior:settings.behavior,
+      viewport:{width:innerWidth,height:innerHeight}
+    }),
+    resolve:(x,y)=>resolveSafePosition(Number(x)||0,Number(y)||0)
+  });
   const fallbackImage="/static/assets/avatar.webp";
   const fallbackDimensions = () => {
     shell.dataset.mode=settings.mode;
@@ -226,6 +237,116 @@
     return {x:bound(x,margin,Math.max(margin,innerWidth-w-margin)),
       y:bound(y,margin,Math.max(margin,innerHeight-h-margin))};
   }
+  function rectVisible(rect){
+    return !!rect&&rect.width>1&&rect.height>1&&rect.bottom>0&&rect.right>0&&
+      rect.top<innerHeight&&rect.left<innerWidth;
+  }
+  function elementVisible(node){
+    if(!node||node===shell||node===menu||node.closest?.("#foxShell,#foxContextMenu"))return false;
+    const style=getComputedStyle(node);
+    if(style.display==="none"||style.visibility==="hidden"||Number(style.opacity)===0)return false;
+    return rectVisible(node.getBoundingClientRect());
+  }
+  function expandRect(rect,padding=spatialPadding){
+    return {left:rect.left-padding,top:rect.top-padding,right:rect.right+padding,
+      bottom:rect.bottom+padding,width:rect.width+padding*2,height:rect.height+padding*2};
+  }
+  function spatialProtectedRects(){
+    const selectors=[
+      "#sayuriSidebar","main>header",".compose",".drive-toolbar",
+      ".sidebar-fixed-bottom",".sidebar-fixed-profile",
+      "[role=dialog]:not(#foxContextMenu):not([hidden])",
+      ".prepared-update:not([hidden])"
+    ];
+    const nodes=new Set();
+    for(const selector of selectors)
+      document.querySelectorAll(selector).forEach(node=>{if(elementVisible(node))nodes.add(node);});
+    const focused=document.activeElement;
+    if(focused&&focused!==document.body&&focused!==avatar&&elementVisible(focused))
+      nodes.add(focused);
+    return [...nodes].map(node=>({node,rect:expandRect(node.getBoundingClientRect())}));
+  }
+  function candidateRect(point){
+    const {w,h}=dimensions();
+    return {left:point.x,top:point.y,right:point.x+w,bottom:point.y+h,width:w,height:h};
+  }
+  function overlapArea(a,b){
+    const width=Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left));
+    const height=Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+    return width*height;
+  }
+  function spatialScore(point,desired,protectedRects){
+    const box=candidateRect(point);
+    const overlap=protectedRects.reduce((sum,item)=>sum+overlapArea(box,item.rect),0);
+    const distance=Math.hypot(point.x-desired.x,point.y-desired.y);
+    return overlap*1000+distance;
+  }
+  function spatialCandidates(desired){
+    const {w,h}=dimensions(),b=activeBounds(),gap=14;
+    const raw=[
+      desired,
+      {x:b.right-w-gap,y:b.bottom-h-gap},
+      {x:b.left+gap,y:b.bottom-h-gap},
+      {x:b.right-w-gap,y:b.top+gap},
+      {x:b.left+gap,y:b.top+gap},
+      {x:b.right-w-gap,y:b.top+(b.bottom-b.top-h)*.5},
+      {x:b.left+gap,y:b.top+(b.bottom-b.top-h)*.5},
+      {x:b.left+(b.right-b.left-w)*.5,y:b.bottom-h-gap}
+    ];
+    const result=[],seen=new Set();
+    for(const item of raw){
+      const point=clampPosition(item.x,item.y);
+      const key=Math.round(point.x)+":"+Math.round(point.y);
+      if(!seen.has(key)){seen.add(key);result.push(point);}
+    }
+    return result;
+  }
+  function resolveSafePosition(x,y){
+    const desired=clampPosition(x,y);
+    const protectedRects=spatialProtectedRects();
+    let best=desired,bestScore=Infinity;
+    for(const point of spatialCandidates(desired)){
+      const score=spatialScore(point,desired,protectedRects);
+      if(score<bestScore){bestScore=score;best=point;}
+    }
+    const safe=protectedRects.every(item=>overlapArea(candidateRect(best),item.rect)===0);
+    shell.dataset.spatialSafe=String(safe);
+    const state=el("foxSpatialState"),detail=el("foxSpatialDetail");
+    if(state)state.textContent=safe?"Свободная зона":"Компромиссная позиция";
+    if(detail)detail.textContent="Защищённых зон: "+protectedRects.length+
+      (safe?". Важные элементы не перекрываются.":". Свободного места недостаточно.");
+    return best;
+  }
+  function updateSpatialStatus(){
+    const protectedRects=spatialProtectedRects();
+    const box=shell.getBoundingClientRect();
+    const safe=!settings.enabled||protectedRects.every(item=>overlapArea(box,item.rect)===0);
+    shell.dataset.spatialSafe=String(safe);
+    const state=el("foxSpatialState"),detail=el("foxSpatialDetail");
+    if(state)state.textContent=safe?"Свободная зона":"Перекрытие интерфейса";
+    if(detail)detail.textContent="Защищённых зон: "+protectedRects.length+
+      (safe?". Положение безопасно.":". Автопозиционирование исправит это при следующем движении.");
+    return {safe,protected:protectedRects.length};
+  }
+  function scheduleSpatialReflow(){
+    clearTimeout(spatialReflowTimer);
+    spatialReflowTimer=setTimeout(()=>{
+      updateSpatialStatus();
+      if(settings.behavior==="follow")followActiveView();
+    },90);
+  }
+  function startSpatialAwareness(){
+    if(spatialObserver)spatialObserver.disconnect();
+    spatialObserver=new MutationObserver(scheduleSpatialReflow);
+    spatialObserver.observe(document.body,{subtree:true,attributes:true,
+      attributeFilter:["class","hidden","open","aria-expanded"]});
+    if("ResizeObserver" in window){
+      spatialResizeObserver=new ResizeObserver(scheduleSpatialReflow);
+      for(const node of [document.querySelector("main"),el("sayuriSidebar"),document.querySelector(".compose")])
+        if(node)spatialResizeObserver.observe(node);
+    }
+    updateSpatialStatus();
+  }
   function activeBounds() {
     const margin=innerWidth<768?12:24;
     const header=document.querySelector("main>header")?.getBoundingClientRect();
@@ -239,7 +360,7 @@
   function autonomousMove(x,y) {
     if(!settings.enabled||drag||!menu.hidden)return false;
     const currentX=parseFloat(shell.style.left)||0;
-    const p=clampPosition(x,y);
+    const p=resolveSafePosition(x,y);
     const facing=p.x<currentX?"-1":"1";
     for(const layer of [picture,frameA,frameB])layer?.style.setProperty("--fox-facing",facing);
     setMotionState("walking");
@@ -309,10 +430,12 @@
       moduleName==="chat" ? (innerWidth<768?95:105) :
       (innerWidth<768?16:24)
     );
-    const p=clampPosition(settings.x===null ? recommendedX :
-      settings.x*Math.max(0,innerWidth-w),
-      settings.y===null ? recommendedY :
-      settings.y*Math.max(0,innerHeight-h));
+    const rawX=settings.x===null ? recommendedX :
+      settings.x*Math.max(0,innerWidth-w);
+    const rawY=settings.y===null ? recommendedY :
+      settings.y*Math.max(0,innerHeight-h);
+    const p=(settings.x===null&&settings.y===null)||settings.behavior!=="stationary"?
+      resolveSafePosition(rawX,rawY):clampPosition(rawX,rawY);
     shell.style.right="auto";shell.style.bottom="auto";
     shell.style.left=p.x+"px";shell.style.top=p.y+"px";
     return p;
@@ -386,6 +509,7 @@
     setMotionState("idle");
     scheduleBehavior();
     startSleepWatch();
+    startSpatialAwareness();
     // Quiet state explicitly controls scripted greetings, not real warning events.
     el("foxAppearanceStatus").textContent="Образ хранится локально. Правый клик по Саюри открывает отдельное окно настроек.";
   }
@@ -550,7 +674,7 @@
     if(drag?.id===e.pointerId){
       if(drag.moved){
         suppressClick=true;lastManualMoveAt=Date.now();
-        persistCoordinates();saveSettings();
+        persistCoordinates();saveSettings();updateSpatialStatus();
       }
       drag=null;
     }
@@ -658,6 +782,7 @@
   }
   window.addEventListener("resize",()=>{
     if(settings.behavior==="follow")followActiveView();else position();
+    updateSpatialStatus();
     if(!menu.hidden)openMenu();
   });
   window.addEventListener("pagehide",()=>{
@@ -665,6 +790,9 @@
     if(autoMoveTimer)clearTimeout(autoMoveTimer);
     if(motionTimer)clearTimeout(motionTimer);
     if(sleepWatchTimer)clearInterval(sleepWatchTimer);
+    if(spatialObserver)spatialObserver.disconnect();
+    if(spatialResizeObserver)spatialResizeObserver.disconnect();
+    clearTimeout(spatialReflowTimer);
     clearAnimationCache();
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
