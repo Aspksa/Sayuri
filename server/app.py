@@ -280,7 +280,9 @@ def persona(authorization: str | None=Header(None)):
             "rules":len(p["behavior_rules"]),
             "scenarios":len(p["acceptance_scenarios"]),
             "chapters":len(p["lore_chapters"]["chapters"]),
-            "rituals":len(p["ritual_engine"]["records"])}
+            "rituals":len(p["ritual_engine"]["records"]),
+            "lore_titles":[str(ch.get("title_ru") or ch.get("title") or ch.get("name") or ch.get("id") or "Глава")[:150] for ch in p["lore_chapters"]["chapters"]],
+            "ritual_titles":[str(item.get("title_ru") or item.get("title") or item.get("name") or item.get("id") or "Ритуал")[:150] for item in p["ritual_engine"]["records"]]}
 
 
 # Owner-granted read-only project explorer.
