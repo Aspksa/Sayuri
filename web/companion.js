@@ -20,7 +20,7 @@
   let lastObjectUrl = null, portraitObjectUrl=null, initialized = false, savePending = false, queuedSave=false;
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
   let behaviorTimer=null,returnTimer=null,autoMoveTimer=null,motionTimer=null,waypointIndex=0,lastManualMoveAt=0;
-  let runtimeState="ready",motionState="idle",personalityState="conversational";
+  let runtimeState="ready",motionState="idle",personalityState="conversational",personalityMotionTimer=null;
   let animationMeta={installed:false,states:{}},animationTimer=null,animationRequest=0,activeFrameLayer=0;
   const animationCache=new Map(),animationUrls=new Set();
   let sleepWatchTimer=null,lastInteractionAt=Date.now();
@@ -215,7 +215,18 @@
       cautious:"attention",focused:"working",analytical:"thinking",studying:"reading",
       conversational:"idle",supportive:"idle",creative:"idle",roleplay:"idle"
     }[state];
-    if(motion&&motionState!=="walking")setMotionState(motion,{temporary:2200});
+    if(personalityMotionTimer)clearTimeout(personalityMotionTimer);
+    personalityMotionTimer=null;
+    if(motion){
+      if(motionState==="walking"){
+        // A state change during spatial movement is applied after arrival instead of being lost.
+        personalityMotionTimer=setTimeout(()=>{
+          personalityMotionTimer=null;
+          if(personalityState===state&&motionState!=="walking")
+            setMotionState(motion,{temporary:2200});
+        },980);
+      }else setMotionState(motion,{temporary:2200});
+    }
   });
   document.addEventListener("visibilitychange",()=>{
     if(!document.hidden&&Date.now()-lastInitiativeCheckAt>5*60*1000)
@@ -1187,6 +1198,7 @@
     clearBehaviorTimers();
     if(autoMoveTimer)clearTimeout(autoMoveTimer);
     if(motionTimer)clearTimeout(motionTimer);
+    if(personalityMotionTimer)clearTimeout(personalityMotionTimer);
     if(sleepWatchTimer)clearInterval(sleepWatchTimer);
     if(initiativeTimer)clearInterval(initiativeTimer);
     if(spatialObserver)spatialObserver.disconnect();
