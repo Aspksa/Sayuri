@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.7.0"><link rel="stylesheet" href="/static/companion.css?v=4.7.0"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.7.1"><link rel="stylesheet" href="/static/companion.css?v=4.7.1"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ico-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
 <symbol id="ico-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
 <symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M20 16.6A5 5 0 0 0 17.5 7a7 7 0 0 0-13.2 2.3A4.5 4.5 0 0 0 7.5 18H19a3 3 0 0 0 1-5.7"/></symbol>
@@ -24,7 +24,7 @@
       <button id="showBeyond" title="SAYURI BEYOND · живой характер"><span class="beyond-menu-sigil">✿</span><span>SAYURI BEYOND</span></button>
       <button id="showChat" title="Единый чат"><svg aria-hidden="true" class="ui-icon"><use href="#ico-message"></use></svg><span>Единый чат</span></button>
       <button id="showWork" title="Рабочие проекты"><svg aria-hidden="true" class="ui-icon"><use href="#ico-briefcase"></use></svg><span>Рабочие проекты</span></button>
-      <button id="showFiles" title="Документы / Облако / Sayuri"><svg aria-hidden="true" class="ui-icon"><use href="#ico-cloud"></use></svg><span>Документы / Облако / Sayuri</span></button>
+      <button id="showFiles" title="Документы · локальное хранилище Sayuri"><svg aria-hidden="true" class="ui-icon"><use href="#ico-cloud"></use></svg><span>Документы</span></button>
       <button id="showHome" title="Домашние проекты"><svg aria-hidden="true" class="ui-icon"><use href="#ico-house"></use></svg><span>Домашние проекты</span></button>
     </nav></div>
   <div id="sidebarScroller" class="sidebar-scroller">
@@ -52,7 +52,7 @@
   <div class="account-main-heading">
     <span class="kicker">ЦЕНТР УПРАВЛЕНИЯ SAYURI</span>
     <h2>Личный кабинет Sayuri</h2>
-    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.7.0</b></span></div>
+    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.7.1</b></span></div>
     <p class="hint">Здесь находятся ваши знания, опыт, библиотека, история развития и настройки модели. Характер и внешний вид Саюри вынесены в отдельный раздел.</p>
   </div>
   <div class="account-action-grid">
@@ -131,13 +131,81 @@
    <li>Вернитесь сюда и проверьте путь «Запущенная версия» выше. Если путь старый, работает прежний сервер.</li></ol>
    <div id="preparedUpdate" class="prepared-update" hidden role="status"></div>
    <p class="hint">Исходный код: <a href="https://github.com/Aspksa/Sayuri" target="_blank" rel="noopener noreferrer">github.com/Aspksa/Sayuri</a>. Личные данные и ключи Cloud.ru не публикуются в GitHub.</p><button type="button" id="updatesBackCabinet" class="subtle-cta">← Вернуться в личный кабинет</button></section>
- </div></section><section class="view" id="workView"><div class="settings"><h2>Рабочие проекты</h2><p class="hint">Документы / Облако / Sayuri / Рабочие проекты · только чтение</p><div id="workBrowser" class="file-browser"></div></div></section><section class="view" id="homeView"><div class="settings"><h2>Домашние проекты</h2><p class="hint">Документы / Облако / Sayuri / Домашние проекты · только чтение</p><div id="homeBrowser" class="file-browser"></div></div></section><section class="view" id="filesView"><div class="settings drive-layout">
-<div class="drive-top"><div><div class="hero-kicker">ЛОКАЛЬНОЕ ХРАНИЛИЩЕ</div><h2>Документы / Облако / Sayuri</h2><p class="hint">Файловый менеджер на вашем компьютере, не подключение к Yandex или Mail.ru.</p></div><span class="drive-chip">Локально · без отправки ИИ</span></div>
-<div class="drive-toolbar"><button id="driveNewFolder" type="button">＋ Новая папка</button><button id="driveUpload" type="button">↑ Загрузить</button><input type="search" id="driveSearch" placeholder="Поиск файлов" aria-label="Поиск файлов"><input id="driveFileInput" class="hidden" type="file" multiple></div>
-<div id="driveBreadcrumbs" class="drive-breadcrumbs"></div><div id="driveInfo" class="hint"></div><div id="driveFiles" class="drive-grid"></div>
-<div class="drive-heading"><h3>Добавленные в библиотеку документы</h3><p class="hint">Ранее загруженные файлы Sayuri показаны отдельно.</p></div>
-<form id="fileForm" class="line"><input type="file" id="file" required><button type="submit">Добавить документ</button></form><div id="files" class="journal"></div>
-</div></section></main></div>
+ </div></section><section class="view" id="workView"><div class="settings"><h2>Рабочие проекты</h2><p class="hint">Документы / Облако / Sayuri / Рабочие проекты · только чтение</p><div id="workBrowser" class="file-browser"></div></div></section><section class="view" id="homeView"><div class="settings"><h2>Домашние проекты</h2><p class="hint">Документы / Облако / Sayuri / Домашние проекты · только чтение</p><div id="homeBrowser" class="file-browser"></div></div></section><section class="view documents-view" id="filesView" aria-label="Документы">
+<div class="documents-workspace" id="documentsWorkspace">
+  <div class="documents-hero">
+    <div class="documents-hero-copy">
+      <span class="kicker">ЛОКАЛЬНОЕ ХРАНИЛИЩЕ · SAYURI</span>
+      <h2>Документы</h2>
+      <p>Файлы, проекты и библиотека Sayuri в одном отдельном рабочем пространстве. Файловый менеджер работает локально на этом устройстве.</p>
+    </div>
+    <div class="documents-hero-status">
+      <span class="documents-local-dot" aria-hidden="true"></span>
+      <div><strong>Локально</strong><small>без отправки файлов ИИ</small></div>
+    </div>
+  </div>
+
+  <div class="documents-toolbar" aria-label="Инструменты документов">
+    <div class="documents-toolbar-primary">
+      <button id="driveNewFolder" type="button">＋ Новая папка</button>
+      <button id="driveUpload" type="button" class="documents-primary-action">↑ Загрузить</button>
+      <input id="driveFileInput" class="hidden" type="file" multiple>
+    </div>
+    <div class="documents-search-tools">
+      <label class="documents-search">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" id="driveSearch" placeholder="Поиск файлов и папок" aria-label="Поиск файлов и папок">
+      </label>
+      <div class="documents-view-switch" role="group" aria-label="Вид файлов">
+        <button id="docsGridView" type="button" aria-pressed="true" title="Карточки">▦</button>
+        <button id="docsListView" type="button" aria-pressed="false" title="Список">☰</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="documents-quick-access" aria-label="Быстрый доступ">
+    <button id="docsOpenWork" type="button"><span class="documents-quick-icon">💼</span><span><strong>Рабочие проекты</strong><small>Перейти к рабочим файлам</small></span><b>→</b></button>
+    <button id="docsOpenHome" type="button"><span class="documents-quick-icon">⌂</span><span><strong>Домашние проекты</strong><small>Личные папки и материалы</small></span><b>→</b></button>
+    <button id="docsOpenLibrary" type="button"><span class="documents-quick-icon">✦</span><span><strong>Библиотека Sayuri</strong><small>Добавленные документы</small></span><b>↓</b></button>
+  </div>
+
+  <div class="documents-layout">
+    <section class="documents-browser" aria-label="Файлы">
+      <div class="documents-panel-head">
+        <div><span class="documents-eyebrow">ХРАНИЛИЩЕ</span><h3>Мои файлы</h3></div>
+        <span id="documentsObjectCount" class="documents-count">Загрузка…</span>
+      </div>
+      <div id="driveBreadcrumbs" class="drive-breadcrumbs" aria-label="Путь к папке"></div>
+      <div id="driveInfo" class="documents-location" role="status">Подключение к локальному хранилищу…</div>
+      <div id="driveFiles" class="drive-grid"></div>
+    </section>
+
+    <aside class="documents-aside" aria-label="Библиотека Sayuri">
+      <section class="documents-side-card documents-sayuri-card">
+        <div class="documents-sayuri-head">
+          <img src="/static/assets/avatar.webp" width="48" height="48" alt="">
+          <div><span class="documents-eyebrow">SAYURI</span><h3>Работа с документами</h3></div>
+        </div>
+        <p>Здесь будут появляться статусы изучения, связанные знания и результаты анализа. На этом этапе экран показывает только реальные файлы и библиотеку.</p>
+        <div class="documents-privacy-note"><strong>Локально</strong><span>Файлы не отправляются модели автоматически.</span></div>
+      </section>
+
+      <section id="documentsLibrary" class="documents-side-card documents-library">
+        <div class="documents-panel-head compact">
+          <div><span class="documents-eyebrow">БИБЛИОТЕКА</span><h3>Документы Sayuri</h3></div>
+        </div>
+        <p class="documents-side-hint">Файлы, которые уже были отдельно добавлены в библиотеку Sayuri.</p>
+        <form id="fileForm" class="documents-library-upload">
+          <label for="file">Добавить документ</label>
+          <input type="file" id="file" required>
+          <button type="submit">Добавить</button>
+        </form>
+        <div id="files" class="documents-library-list"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+</section></main></div>
 <!-- Global, owner-controlled Sayuri: survives navigation between SPA views. -->
 <div id="foxShell" class="fox-shell" aria-label="Саюри: постоянная помощница">
   <div id="foxPanel" class="fox-panel" hidden role="status" aria-live="polite">
@@ -256,4 +324,4 @@
     </section>
   </div>
 </div>
-<script defer src="/static/app.js?v=4.7.0"></script><script defer src="/static/sidebar.js?v=4.7.0"></script><script defer src="/static/companion.js?v=4.7.0"></script></body></html>
+<script defer src="/static/app.js?v=4.7.1"></script><script defer src="/static/sidebar.js?v=4.7.1"></script><script defer src="/static/companion.js?v=4.7.1"></script></body></html>
