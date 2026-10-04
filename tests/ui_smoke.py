@@ -226,6 +226,9 @@ def run():
                         task_reaction=page.evaluate("window.SayuriReactions.getSnapshot()")
                         assert task_reaction and task_reaction["title"]=="Ошибка задачи",(width,task_reaction)
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="attention",width
+                        if not page.locator("#foxContextMenu").is_visible():
+                            page.locator("#foxSettingsOpen").click()
+                            page.wait_for_function("() => !document.querySelector('#foxContextMenu').hidden")
                         page.locator("#foxResetPosition").click()
                         reset_fox=page.locator("#foxAvatar").bounding_box()
                         assert reset_fox,(width,reset_fox)
