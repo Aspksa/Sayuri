@@ -610,10 +610,11 @@ async def observe_teacher_exchange(user_id: str, chat_id: str, question: str, an
         "Если надёжной информации нет, верни {\"facts\":[]}."
     )
     try:
-        raw=await cloud_chat([
-            {"role":"system","content":instruction},
-            {"role":"user","content":"Владелец: "+question[:4000]+"\nНаставник: "+answer[:4000]}
-        ],model_override=model)
+        with runtime.operation("verifying","Проверка предложений наставника"):
+            raw=await cloud_chat([
+                {"role":"system","content":instruction},
+                {"role":"user","content":"Владелец: "+question[:4000]+"\nНаставник: "+answer[:4000]}
+            ],model_override=model)
         cleaned=raw.strip()
         if cleaned.startswith("```"):
             cleaned=cleaned.split("\n",1)[-1].rsplit("```",1)[0].strip()
