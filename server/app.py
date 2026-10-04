@@ -751,9 +751,6 @@ class DriveMove(BaseModel):
     path: str
     destination: str = ""
 
-class DriveMove(BaseModel):
-    path: str
-    destination: str = ""
 
 def managed_root() -> Path:
     try:
@@ -788,12 +785,6 @@ def drive_folders(authorization: str | None=Header(None)):
     try:return {"folders":list_folders(root)}
     except (DriveError,OSError) as exc:raise HTTPException(404,"Папки недоступны") from exc
 
-@app.get("/api/drive/folders")
-def drive_folders(authorization: str | None=Header(None)):
-    auth(authorization)
-    root=managed_root()
-    try:return {"folders":list_folders(root)}
-    except (DriveError,OSError) as exc:raise HTTPException(404,"Папки недоступны") from exc
 
 @app.post("/api/drive/folder")
 def drive_folder(body:DriveFolder,authorization: str | None=Header(None)):
