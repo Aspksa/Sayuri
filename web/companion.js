@@ -31,7 +31,11 @@
       entity_type:detail.entity_type || null,
       entity_id:typeof detail.entity_id==="string" ? detail.entity_id.slice(0,180) : null,
       permission_scope:"local_ui"};
-    if (detail.type==="route_changed") moduleName=moduleId;
+    if (detail.type==="route_changed") {
+      moduleName=moduleId;
+      document.body.dataset.activeView=moduleName;
+      if(settings.x===null && settings.y===null) position();
+    }
     if (detail.type==="document_opened" || detail.type==="record_selected")
       selected={module:moduleId,type:recentEvent.entity_type,id:recentEvent.entity_id};
     if(detail.type==="document_uploaded") selected={module:moduleId,
@@ -72,7 +76,10 @@
     fallbackDimensions();
     const {w,h}=dimensions();
     const recommendedX=innerWidth-w-(innerWidth<768?12:24);
-    const recommendedY=innerHeight-h-(innerWidth<768?95:105);
+    const recommendedY=innerHeight-h-(
+      moduleName==="chat" ? (innerWidth<768?95:105) :
+      (innerWidth<768?16:24)
+    );
     const p=clampPosition(settings.x===null ? recommendedX :
       settings.x*Math.max(0,innerWidth-w),
       settings.y===null ? recommendedY :
