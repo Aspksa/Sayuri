@@ -647,3 +647,29 @@ def save_cloud_config(body: CloudConfigIn,request: Request,authorization: str | 
             "mentor_model":os.getenv("CLOUD_RU_TEACHER_MODEL",""),
             "sayuri_model":os.getenv("CLOUD_RU_MODEL",""),
             "status":"Настроено" if os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_TEACHER_MODEL") else "Требуется ключ и модель наставника"}
+
+from server.updating import UpdateError, apply_update, update_status
+
+@app.get("/api/updates/status")
+def github_update_status(request: Request,authorization: str | None = Header(None)):
+    auth(authorization)
+    require_local_settings(request)
+    try:
+        return update_status(ROOT)
+    except UpdateError as exc:
+        return {"update_available":False,"supported":False,"reason":str(exc),
+                "repository":"https://github.com/Aspksa/Sayuri"}
+
+class UpdateConfirmation(BaseModel):
+    confirm: bool
+
+@app.post("/api/updates/apply")
+def github_update_apply(body:UpdateConfirmation,request: Request,authorization: str | None = Header(None)):
+    auth(authorization)
+    require_local_settings(request)
+    if not body.confirm:
+        raise HTTPException(400,"Требуется явное подтверждение")
+    try:
+        return apply_update(ROOT)
+    except UpdateError as exc:
+        raise HTTPException(409,str(exc)) from exc
