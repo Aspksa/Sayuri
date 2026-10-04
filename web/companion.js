@@ -1,4 +1,4 @@
-/* BEYOND 2.0 — persistent, contextual web assistant; no OS/screen access. */
+/* BEYOND 2.1 — persistent assistant with a dedicated right-click settings window. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
@@ -61,6 +61,9 @@
     el("foxModeExpanded").setAttribute("aria-pressed",String(settings.mode==="expanded"));
     el("foxContextMenu").querySelector('[data-fox-action="quiet"]')
       .setAttribute("aria-pressed",String(settings.quiet));
+    const scaleControl=el("foxScale"),scaleValue=el("foxScaleValue");
+    if(scaleControl)scaleControl.value=String(settings.scale);
+    if(scaleValue)scaleValue.textContent=Math.round(settings.scale*100)+"%";
   };
   const dimensions=()=> {
     // Visual scale only; pointer handlers clamp the actual transformed box.
@@ -219,7 +222,7 @@
     },
     tasks:()=>statusInfo(),
     profile:()=>navigate("account"),
-    appearance:()=>{navigate("beyond");el("foxInstall")?.scrollIntoView({block:"start",behavior:"smooth"});el("foxPickPack")?.focus();},
+    settings:()=>openMenu(),
     quiet:async()=>{settings.quiet=!settings.quiet;fallbackDimensions();
       if(settings.quiet){panel.hidden=true;if("speechSynthesis" in window)speechSynthesis.cancel();}
       await saveSettings();},
@@ -230,34 +233,34 @@
   function closeMenu(restore=false){
     if(menu.hidden)return;
     menu.hidden=true;
-    if(restore) (menuPreviouslyFocused||avatar).focus();
+    if(restore){
+      const fallback=settings.enabled?avatar:el("foxSettingsOpen");
+      (menuPreviouslyFocused&&menuPreviouslyFocused.isConnected&&!menuPreviouslyFocused.hidden?
+        menuPreviouslyFocused:fallback)?.focus();
+    }
   }
-  function openMenu(x,y) {
-    if(!settings.enabled)return;
+  function openMenu() {
     menuPreviouslyFocused=document.activeElement;
     menu.hidden=false;
-    // CSS position:fixed. Clamp menu after measuring its rendered dimensions.
-    const box=menu.getBoundingClientRect();
-    const xx=bound(x,8,Math.max(8,innerWidth-box.width-8));
-    const yy=bound(y,8,Math.max(8,innerHeight-box.height-8));
-    menu.style.left=xx+"px";menu.style.top=yy+"px";
-    menu.querySelector('[role="menuitem"]')?.focus();
+    menu.style.left="";
+    menu.style.top="";
+    requestAnimationFrame(()=>el("foxSettingsClose")?.focus());
   }
   menu.addEventListener("click",e=>{
     const item=e.target.closest("button[data-fox-action]");
     if(!item)return;
     const action=item.dataset.foxAction;
-    closeMenu();
     actions[action]?.();
+    if(!["quiet","minimize","reset"].includes(action))closeMenu();
   });
   avatar.addEventListener("contextmenu",e=>{
     e.preventDefault();e.stopPropagation();
-    openMenu(e.clientX,e.clientY);
+    openMenu();
   });
   avatar.addEventListener("keydown",e=>{
     if(e.key==="ContextMenu"||(e.key==="F10"&&e.shiftKey)){
-      e.preventDefault();const r=avatar.getBoundingClientRect();
-      openMenu(r.left,r.top);
+      e.preventDefault();
+      openMenu();
     }
   });
   document.addEventListener("keydown",e=>{
@@ -265,16 +268,6 @@
       if(!menu.hidden){e.preventDefault();e.stopPropagation();closeMenu(true);}
       else if(!panel.hidden)panel.hidden=true;
     }
-    if(menu.hidden)return;
-    const buttons=[...menu.querySelectorAll('button[role="menuitem"]:not(:disabled)')];
-    const idx=buttons.indexOf(document.activeElement);
-    if(["ArrowDown","ArrowUp","Home","End"].includes(e.key)){
-      e.preventDefault();
-      const next=e.key==="Home"?0:e.key==="End"?buttons.length-1:
-        (idx+(e.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length;
-      buttons[next]?.focus();
-    }
-    if(e.key==="Tab"){e.preventDefault();closeMenu(true);}
   });
   document.addEventListener("pointerdown",e=>{
     if(!menu.hidden && !menu.contains(e.target) && !avatar.contains(e.target))closeMenu();
@@ -289,7 +282,7 @@
     avatar.setPointerCapture(e.pointerId);
     if(e.pointerType==="touch")longPress=setTimeout(()=>{
       if(drag&&!drag.moved){
-        openMenu(e.clientX,e.clientY);drag=null;suppressClick=true;
+        openMenu();drag=null;suppressClick=true;
       }
     },650);
   });
@@ -314,7 +307,7 @@
   avatar.addEventListener("click",e=>{
     if(suppressClick){suppressClick=false;return}
     if(e.detail>=2)return;
-    message("Господин, я рядом. Дважды нажмите, чтобы открыть чат, или нажмите правой кнопкой для действий.");
+    message("Господин, я рядом. Дважды нажмите, чтобы открыть чат, или нажмите правой кнопкой для настроек.");
   });
   avatar.addEventListener("dblclick",e=>{
     e.preventDefault();panel.hidden=true;navigate("chat");
@@ -366,7 +359,7 @@
   el("foxVisibility").addEventListener("click",async()=>{
     settings.enabled=!settings.enabled;
     fallbackDimensions();
-    if(!settings.enabled){closeMenu();panel.hidden=true;}
+    if(!settings.enabled)panel.hidden=true;
     else position();
     await saveSettings();
   });
@@ -376,18 +369,19 @@
     position();await saveSettings();
     el("foxAppearanceStatus").textContent="Саюри возвращена в правый нижний угол.";
   });
-  el("foxJumpInstall").addEventListener("click",()=>{
-    const target=el("foxInstall");
-    if(!target)return;
-    target.scrollIntoView({block:"center",behavior:"smooth"});
-    el("foxPackUpload")?.focus({preventScroll:true});
+  el("foxSettingsOpen").addEventListener("click",()=>openMenu());
+  el("foxSettingsClose").addEventListener("click",()=>closeMenu(true));
+  el("foxScale").addEventListener("input",e=>{
+    settings.scale=bound(Number(e.target.value)||1,.7,1.4);
+    fallbackDimensions();
+    if(settings.enabled)position();
   });
+  el("foxScale").addEventListener("change",()=>saveSettings());
   for(const [id,kind] of [["foxModeCompact","compact"],
     ["foxModeFloating","floating"],["foxModeExpanded","expanded"]]){
     el(id).addEventListener("click",()=>chooseMode(kind));
   }
-  window.addEventListener("resize",()=>{position();if(!menu.hidden){
-    const r=menu.getBoundingClientRect();openMenu(r.left,r.top)}});
+  window.addEventListener("resize",()=>{position();if(!menu.hidden)openMenu();});
   window.addEventListener("pagehide",()=>{
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
