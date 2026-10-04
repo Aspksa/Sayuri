@@ -11,12 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
-from server.paths import cloud_root, data_root, ensure_project_folders
+from server.paths import cloud_root, prepare_data_dir, ensure_project_folders
 from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = data_root(ROOT)
-DATA.mkdir(parents=True, exist_ok=True)
+DATA = prepare_data_dir(ROOT)
 DB = DATA / "sayuri.sqlite3"
 WEB = ROOT / "web"
 app = FastAPI(title="Sayuri", version="0.1.0")
