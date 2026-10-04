@@ -1,4 +1,4 @@
-/* BEYOND 2.5 — animation engine plus spatial awareness and collision avoidance. */
+/* BEYOND 2.6 — context-aware reactions to real UI entities and runtime events. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
@@ -10,7 +10,7 @@
   const eventTypes = new Set([
     "route_changed", "document_opened", "document_uploaded", "record_selected",
     "task_started", "task_progress", "task_failed", "task_finished",
-    "memory_updated", "contradiction_detected"
+    "memory_updated", "contradiction_detected", "project_opened", "notification_shown"
   ]);
   const modules = {account:"Личный кабинет",beyond:"SAYURI BEYOND",chat:"Единый чат",
     files:"Документы / Облако / Sayuri",work:"Рабочие проекты",
@@ -25,6 +25,7 @@
   const animationCache=new Map(),animationUrls=new Set();
   let sleepWatchTimer=null,lastInteractionAt=Date.now();
   let spatialObserver=null,spatialResizeObserver=null,spatialReflowTimer=null;
+  let contextReturnTimer=null,lastContextReaction=null;
   const spatialPadding=12;
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
@@ -58,6 +59,7 @@
       setMotionState("happy",{temporary:2600});
     if(detail.type==="task_failed"||detail.type==="contradiction_detected")
       setMotionState("attention",{temporary:3600});
+    reactToContext(detail);
     if(settings.behavior==="event" &&
       ["task_finished","task_failed","memory_updated","contradiction_detected"].includes(detail.type))
       approachEvent(detail.type);
@@ -188,7 +190,14 @@
   }
   window.addEventListener("sayuri:runtime",e=>{
     const state=e.detail?.state;
-    if(typeof state==="string")setRuntimeState(state);
+    if(typeof state!=="string")return;
+    const previous=runtimeState;
+    setRuntimeState(state);
+    if(state!==previous){
+      if(state==="executing")reactToContext({type:"task_started",module:moduleName,entity_type:"task",entity_id:null});
+      if(state==="completed")reactToContext({type:"task_finished",module:moduleName,entity_type:"task",entity_id:null});
+      if(state==="attention")reactToContext({type:"task_failed",module:moduleName,entity_type:"task",entity_id:null});
+    }
   });
   window.SayuriContext = Object.freeze({getCurrent:()=>({module:moduleName,selected,
     latestEvent:recentEvent})});
@@ -200,6 +209,10 @@
       viewport:{width:innerWidth,height:innerHeight}
     }),
     resolve:(x,y)=>resolveSafePosition(Number(x)||0,Number(y)||0)
+  });
+  window.SayuriReactions = Object.freeze({
+    getSnapshot:()=>lastContextReaction?{...lastContextReaction}:null,
+    react:detail=>{if(detail&&eventTypes.has(detail.type))reactToContext(detail);}
   });
   const fallbackImage="/static/assets/avatar.webp";
   const fallbackDimensions = () => {
@@ -251,7 +264,7 @@
     return {left:rect.left-padding,top:rect.top-padding,right:rect.right+padding,
       bottom:rect.bottom+padding,width:rect.width+padding*2,height:rect.height+padding*2};
   }
-  function spatialProtectedRects(){
+  function spatialProtectedRects(extraRects=[]){
     const selectors=[
       "#sayuriSidebar","main>header",".compose",".drive-toolbar",
       ".sidebar-fixed-bottom",".sidebar-fixed-profile",
@@ -264,7 +277,8 @@
     const focused=document.activeElement;
     if(focused&&focused!==document.body&&focused!==avatar&&elementVisible(focused))
       nodes.add(focused);
-    return [...nodes].map(node=>({node,rect:expandRect(node.getBoundingClientRect())}));
+    return [...nodes].map(node=>({node,rect:expandRect(node.getBoundingClientRect())}))
+      .concat(extraRects.map(rect=>({node:null,rect})));
   }
   function candidateRect(point){
     const {w,h}=dimensions();
@@ -301,9 +315,9 @@
     }
     return result;
   }
-  function resolveSafePosition(x,y){
+  function resolveSafePosition(x,y,extraRects=[]){
     const desired=clampPosition(x,y);
-    const protectedRects=spatialProtectedRects();
+    const protectedRects=spatialProtectedRects(extraRects);
     let best=desired,bestScore=Infinity;
     for(const point of spatialCandidates(desired)){
       const score=spatialScore(point,desired,protectedRects);
@@ -347,6 +361,114 @@
     }
     updateSpatialStatus();
   }
+  function normalizedContextType(type){
+    if(["file","document"].includes(type))return "document";
+    if(["project","folder"].includes(type))return "project";
+    if(type==="task")return "task";
+    if(type==="notification")return "notification";
+    return "context";
+  }
+  function contextTarget(detail){
+    const entityType=detail?.entity_type||selected?.type||null;
+    const entityId=detail?.entity_id||selected?.id||null;
+    if(entityType&&entityId){
+      const exact=[...document.querySelectorAll("[data-sayuri-entity-type][data-sayuri-entity-id]")]
+        .find(node=>elementVisible(node)&&
+          normalizedContextType(node.dataset.sayuriEntityType)===normalizedContextType(entityType)&&
+          node.dataset.sayuriEntityId===String(entityId));
+      if(exact)return {node:exact,exact:true};
+      const byId=[...document.querySelectorAll("[data-sayuri-entity-id]")]
+        .find(node=>elementVisible(node)&&node.dataset.sayuriEntityId===String(entityId));
+      if(byId)return {node:byId,exact:true};
+    }
+    const kind=normalizedContextType(entityType||
+      (detail?.type?.startsWith("task_")?"task":
+       detail?.type==="notification_shown"?"notification":"context"));
+    const fallback={
+      document:()=>el("driveFiles")||el("files"),
+      project:()=>detail?.module==="work"?el("workBrowser"):
+        detail?.module==="home"?el("homeBrowser"):el("driveFiles"),
+      task:()=>el("profileActivity")||el("sayuriStatusDetails"),
+      notification:()=>document.querySelector(".prepared-update:not([hidden])")||el("updateStatus"),
+      context:()=>document.querySelector(".view.active .settings,.view.active")
+    }[kind]?.();
+    return fallback&&elementVisible(fallback)?{node:fallback,exact:false}:null;
+  }
+  function contextReactionCopy(detail,exact){
+    const kind=normalizedContextType(detail?.entity_type||
+      (detail?.type?.startsWith("task_")?"task":
+       detail?.type==="notification_shown"?"notification":"context"));
+    const event=detail?.type||"";
+    if(kind==="document")return {
+      motion:"reading",title:"Документ",text:exact?
+        "Я рядом с выбранным документом.":"Документ открыт; точная карточка сейчас не видна."
+    };
+    if(kind==="project")return {
+      motion:"thinking",title:"Проект",text:exact?
+        "Перешла к выбранному проекту.":"Проект активен; показываю реакцию у области проекта."
+    };
+    if(kind==="task"){
+      if(event==="task_failed")return {motion:"attention",title:"Ошибка задачи",
+        text:"Задача требует внимания. Показываю её через статус выполнения."};
+      if(event==="task_finished")return {motion:"happy",title:"Задача завершена",
+        text:"Выполнение завершено."};
+      return {motion:"working",title:"Задача выполняется",
+        text:"Слежу за реальным статусом выполнения."};
+    }
+    if(kind==="notification")return {motion:"attention",title:"Уведомление",
+      text:exact?"Подошла к уведомлению.":"Есть новое уведомление в активном разделе."};
+    if(event==="contradiction_detected")return {motion:"attention",title:"Нужна проверка",
+      text:"Обнаружено противоречие."};
+    if(event==="memory_updated")return {motion:"happy",title:"Память обновлена",
+      text:"Новые данные сохранены в памяти."};
+    return {motion:motionFromRuntime(runtimeState),title:"Контекст",text:"Контекст обновлён."};
+  }
+  function contextApproachPoint(target){
+    const r=target.getBoundingClientRect(),{w,h}=dimensions(),gap=18;
+    const points=[
+      {x:r.right+gap,y:r.top+(r.height-h)*.5},
+      {x:r.left-w-gap,y:r.top+(r.height-h)*.5},
+      {x:r.left+(r.width-w)*.5,y:r.bottom+gap},
+      {x:r.left+(r.width-w)*.5,y:r.top-h-gap}
+    ].map(point=>clampPosition(point.x,point.y));
+    const targetRect=expandRect(r,10);
+    let best=points[0],score=Infinity;
+    for(const point of points){
+      const s=spatialScore(point,point,spatialProtectedRects([targetRect]));
+      if(s<score){score=s;best=point;}
+    }
+    return resolveSafePosition(best.x,best.y,[targetRect]);
+  }
+  function reactToContext(detail){
+    if(!settings.enabled||detail?.type==="route_changed")return;
+    const target=contextTarget(detail);
+    const copy=contextReactionCopy(detail,!!target?.exact);
+    lastContextReaction={
+      type:detail?.type||null,entity_type:detail?.entity_type||null,
+      entity_id:detail?.entity_id||null,module:detail?.module||moduleName,
+      exact:!!target?.exact,title:copy.title,text:copy.text
+    };
+    const state=el("foxContextState"),info=el("foxContextDetail");
+    if(state)state.textContent=copy.title;
+    if(info)info.textContent=copy.text;
+    setMotionState(copy.motion,{temporary:detail?.type==="task_progress"?1500:3000});
+    if(target?.node&&["document_opened","project_opened","notification_shown",
+      "task_finished","task_failed"].includes(detail?.type)){
+      const point=contextApproachPoint(target.node);
+      autonomousMove(point.x,point.y,[expandRect(target.node.getBoundingClientRect(),10)]);
+    }
+    if(["task_finished","task_failed","notification_shown","contradiction_detected"].includes(detail?.type))
+      message(copy.text);
+    clearTimeout(contextReturnTimer);
+    contextReturnTimer=setTimeout(()=>{
+      if(lastContextReaction===null)return;
+      const state=el("foxContextState"),info=el("foxContextDetail");
+      if(state)state.textContent="Ожидает контекст";
+      if(info)info.textContent="Готова реагировать на следующий объект или событие.";
+      lastContextReaction=null;
+    },6500);
+  }
+
   function activeBounds() {
     const margin=innerWidth<768?12:24;
     const header=document.querySelector("main>header")?.getBoundingClientRect();
@@ -357,10 +479,10 @@
     const bottom=Math.min(innerHeight-margin,view?.bottom??innerHeight-margin);
     return {left,top,right:Math.max(left+40,right),bottom:Math.max(top+40,bottom)};
   }
-  function autonomousMove(x,y) {
+  function autonomousMove(x,y,extraRects=[]) {
     if(!settings.enabled||drag||!menu.hidden)return false;
     const currentX=parseFloat(shell.style.left)||0;
-    const p=resolveSafePosition(x,y);
+    const p=resolveSafePosition(x,y,extraRects);
     const facing=p.x<currentX?"-1":"1";
     for(const layer of [picture,frameA,frameB])layer?.style.setProperty("--fox-facing",facing);
     setMotionState("walking");
@@ -407,7 +529,7 @@
     }
   }
   function approachEvent(type) {
-    if(settings.behavior!=="event"||!settings.enabled)return;
+    if(settings.behavior!=="event"||!settings.enabled||lastContextReaction?.exact)return;
     const {w,h}=dimensions(),b=activeBounds();
     const x=b.right-w-Math.max(16,(b.right-b.left)*.08);
     const y=b.top+Math.max(20,(b.bottom-b.top-h)*.42);
@@ -793,6 +915,7 @@
     if(spatialObserver)spatialObserver.disconnect();
     if(spatialResizeObserver)spatialResizeObserver.disconnect();
     clearTimeout(spatialReflowTimer);
+    clearTimeout(contextReturnTimer);
     clearAnimationCache();
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
