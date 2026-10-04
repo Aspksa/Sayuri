@@ -24,8 +24,8 @@ def _component(name: str) -> bool:
     if len(name)>150:
         return False
     base=name.split(".")[0].upper()
-    if base in {"CON","PRN","AUX","NUL"} or
-        (len(base)==4 and base[:3] in ("COM","LPT") and base[3:].isdigit()):
+    if (base in {"CON","PRN","AUX","NUL"} or
+        (len(base)==4 and base[:3] in ("COM","LPT") and base[3:].isdigit())):
         return False
     return True
 
