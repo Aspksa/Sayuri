@@ -68,6 +68,10 @@ def run():
                         page.locator("#foxResetPosition").click()
                         reset_fox=page.locator("#foxAvatar").bounding_box()
                         assert reset_fox and reset_fox["x"] > width/2,(width,reset_fox)
+                        page.locator("#foxVisibility").click()
+                        assert not page.locator("#foxAvatar").is_visible(),width
+                        page.locator("#foxVisibility").click()
+                        assert page.locator("#foxAvatar").is_visible(),width
                         page.locator("#foxSettingsClose").click()
                         assert not page.locator("#foxContextMenu").is_visible(),width
                         assert page.locator(".advanced-settings").count()==1,width
