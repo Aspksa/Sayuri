@@ -554,6 +554,9 @@
         .find(node=>elementVisible(node)&&node.dataset.sayuriEntityId===String(entityId));
       if(byId)return {node:byId,exact:true};
     }
+    // Never walk toward an unrelated active view when the event belongs to another module.
+    // We can still react, but without pretending a visible target exists.
+    if(detail?.module && detail.module!==moduleName)return null;
     const kind=normalizedContextType(entityType||
       (detail?.type?.startsWith("task_")?"task":
        detail?.type==="notification_shown"?"notification":"context"));
