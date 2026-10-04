@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.7.2"><link rel="stylesheet" href="/static/companion.css?v=4.7.2"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=4.7.3"><link rel="stylesheet" href="/static/companion.css?v=4.7.3"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ico-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
 <symbol id="ico-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
 <symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M20 16.6A5 5 0 0 0 17.5 7a7 7 0 0 0-13.2 2.3A4.5 4.5 0 0 0 7.5 18H19a3 3 0 0 0 1-5.7"/></symbol>
@@ -52,7 +52,7 @@
   <div class="account-main-heading">
     <span class="kicker">ЦЕНТР УПРАВЛЕНИЯ SAYURI</span>
     <h2>Личный кабинет Sayuri</h2>
-    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.7.2</b></span></div>
+    <div class="version-strip"><span><strong>Личность</strong> SAYURI 2.0</span><span><strong>Интерфейс</strong> <b id="accountUiVersion">4.7.3</b></span></div>
     <p class="hint">Здесь находятся ваши знания, опыт, библиотека, история развития и настройки модели. Характер и внешний вид Саюри вынесены в отдельный раздел.</p>
   </div>
   <div class="account-action-grid">
@@ -183,6 +183,10 @@
             <span class="documents-eyebrow">ПАПКИ</span>
             <strong>Иерархия</strong>
           </div>
+          <div id="documentsPinned" class="documents-pinned" hidden>
+            <span class="documents-folder-children-label">Закреплено</span>
+            <div id="documentsPinnedItems"></div>
+          </div>
           <div id="documentsFolderTree" class="documents-folder-tree"></div>
         </nav>
 
@@ -241,6 +245,53 @@
       <div class="documents-dialog-actions">
         <button id="newFolderCancel" type="button">Отмена</button>
         <button id="newFolderSubmit" type="submit">Создать папку</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="documentsContextMenu" class="documents-context-menu" hidden role="menu" aria-label="Действия с объектом">
+    <div class="documents-context-title">
+      <span id="documentsContextKind">Объект</span>
+      <strong id="documentsContextName">Название</strong>
+    </div>
+    <button type="button" role="menuitem" data-doc-action="open">↗ <span>Открыть</span></button>
+    <button type="button" role="menuitem" data-doc-action="rename">✎ <span>Переименовать</span></button>
+    <button type="button" role="menuitem" data-doc-action="move">⇢ <span>Переместить</span></button>
+    <button type="button" role="menuitem" data-doc-action="pin">☆ <span>Закрепить</span></button>
+    <div class="documents-context-separator"></div>
+    <button type="button" role="menuitem" data-doc-action="delete" class="danger">× <span>Удалить</span></button>
+  </div>
+
+  <dialog id="renameItemDialog" class="documents-dialog" role="dialog" aria-labelledby="renameItemTitle">
+    <form id="renameItemForm" novalidate>
+      <div class="documents-dialog-head">
+        <div><span class="documents-eyebrow">ПЕРЕИМЕНОВАНИЕ</span><h3 id="renameItemTitle">Новое название</h3></div>
+        <button id="renameItemClose" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <p class="documents-dialog-parent">Объект: <strong id="renameItemCurrent">—</strong></p>
+      <label for="renameItemName">Название</label>
+      <input id="renameItemName" type="text" maxlength="150" autocomplete="off" required>
+      <p id="renameItemError" class="documents-dialog-error" role="alert"></p>
+      <div class="documents-dialog-actions">
+        <button id="renameItemCancel" type="button">Отмена</button>
+        <button id="renameItemSubmit" type="submit">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="moveItemDialog" class="documents-dialog" role="dialog" aria-labelledby="moveItemTitle">
+    <form id="moveItemForm">
+      <div class="documents-dialog-head">
+        <div><span class="documents-eyebrow">ПЕРЕМЕЩЕНИЕ</span><h3 id="moveItemTitle">Переместить</h3></div>
+        <button id="moveItemClose" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <p class="documents-dialog-parent">Объект: <strong id="moveItemCurrent">—</strong></p>
+      <label for="moveItemDestination">Папка назначения</label>
+      <select id="moveItemDestination"></select>
+      <p id="moveItemError" class="documents-dialog-error" role="alert"></p>
+      <div class="documents-dialog-actions">
+        <button id="moveItemCancel" type="button">Отмена</button>
+        <button id="moveItemSubmit" type="submit">Переместить</button>
       </div>
     </form>
   </dialog>
@@ -364,4 +415,4 @@
     </section>
   </div>
 </div>
-<script defer src="/static/app.js?v=4.7.2"></script><script defer src="/static/sidebar.js?v=4.7.2"></script><script defer src="/static/companion.js?v=4.7.2"></script></body></html>
+<script defer src="/static/app.js?v=4.7.3"></script><script defer src="/static/sidebar.js?v=4.7.3"></script><script defer src="/static/companion.js?v=4.7.3"></script></body></html>
