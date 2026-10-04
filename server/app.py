@@ -35,6 +35,7 @@ from server.teacher33 import (
     migrate as migrate_teacher33, parse_analysis, analysis_instruction, analysis_payload,
     teacher_instruction, create_lesson, save_analysis, add_clarification,
     lesson as teacher_lesson, recent_lessons as teacher_recent_lessons,
+    lesson_context as teacher_lesson_context,
     summary as teacher_learning_summary
 )
 from dotenv import set_key
@@ -322,11 +323,16 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
                     operation="conversation"),now=stamp())
         instinct_context=instinct_context_text(instinct_result)
         if instinct_context:context+="\n"+instinct_context
+        with db() as c:
+            selected_teacher_lessons=teacher_lesson_context(
+                c,user_id=u,query=body.text,project_id=project_id,limit=5)
         if selected_knowledge:
             context+="\n"+selected_knowledge
         else:
             selected_memory=context_text(memories[:12])
             if selected_memory:context+="\n"+selected_memory
+        if selected_teacher_lessons:
+            context+="\n"+selected_teacher_lessons
     req=[{"role":"system","content":context}]+[{"role":r["role"],"content":r["text"]} for r in reversed(hist)]
     req.append({"role":"user","content":body.text})
     # Cloud failure must not create a phantom assistant answer or duplicate user messages.
@@ -340,7 +346,8 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         count=c.execute("SELECT COUNT(*) n FROM messages WHERE chat_id=?",(cid,)).fetchone()["n"]
         if count==2: c.execute("UPDATE chats SET title=? WHERE id=?",(body.text[:65],cid))
     if kind=="teacher" and os.getenv("SAYURI_AUTO_OBSERVE","1").lower() in ("1","true","yes"):
-        background_tasks.add_task(auto_learn_teacher_exchange,u,cid,body.text,answer)
+        background_tasks.add_task(
+            auto_learn_teacher_exchange,u,cid,body.text,answer,project_id)
     return {
         "reply":answer,"message_id":outgoing,"kind":kind,
         "instinct":None if kind=="teacher" else {
@@ -886,7 +893,8 @@ def remove_document(did: str, authorization: str | None = Header(None)):
     return {"ok":True}
 
 async def auto_learn_teacher_exchange(user_id: str, chat_id: str,
-                                      owner_question: str, teacher_answer: str):
+                                      owner_question: str, teacher_answer: str,
+                                      project_id: str | None=None):
     """Automatically understand one teacher exchange with at most two clarification rounds."""
     teacher_model=os.getenv("CLOUD_RU_TEACHER_MODEL","").strip()
     if not teacher_model:
@@ -896,7 +904,7 @@ async def auto_learn_teacher_exchange(user_id: str, chat_id: str,
     with db() as c:
         lesson_id=create_lesson(
             c,user_id=user_id,chat_id=chat_id,owner_question=owner_question,
-            teacher_answer=teacher_answer,now=now)
+            teacher_answer=teacher_answer,now=now,project_id=project_id)
     clarifications=[]
     final_analysis=None
     try:
