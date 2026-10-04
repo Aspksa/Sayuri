@@ -337,7 +337,28 @@ def run():
                         page.locator("#moveItemCancel").click()
                         renamed_card=page.locator("#driveFiles .drive-file").filter(has_text=renamed).first
                         target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
-                        renamed_card.drag_to(target_card)
+                        source_path=renamed_card.get_attribute("data-drive-path")
+                        target_path=target_card.get_attribute("data-drive-path")
+                        assert source_path and target_path,(width,source_path,target_path)
+                        page.evaluate("""args => {
+                          const cards=Array.from(document.querySelectorAll('#driveFiles .drive-file'));
+                          const source=cards.find(node=>node.dataset.drivePath===args.source);
+                          const target=cards.find(node=>node.dataset.drivePath===args.target);
+                          if(!source||!target)throw new Error('DnD cards not found');
+                          const transfer=new DataTransfer();
+                          source.dispatchEvent(new DragEvent('dragstart',{
+                            bubbles:true,cancelable:true,dataTransfer:transfer
+                          }));
+                          target.dispatchEvent(new DragEvent('dragover',{
+                            bubbles:true,cancelable:true,dataTransfer:transfer
+                          }));
+                          target.dispatchEvent(new DragEvent('drop',{
+                            bubbles:true,cancelable:true,dataTransfer:transfer
+                          }));
+                          source.dispatchEvent(new DragEvent('dragend',{
+                            bubbles:true,cancelable:true,dataTransfer:transfer
+                          }));
+                        }""",{"source":source_path,"target":target_path})
                         page.wait_for_function("name => !Array.from(document.querySelectorAll('#driveFiles .drive-file-name')).some(node => node.textContent === name)",arg=renamed)
                         target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
                         target_card.locator("button").filter(has_text="Открыть").click()
