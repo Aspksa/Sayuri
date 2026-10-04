@@ -18,6 +18,7 @@ def migrate(db: Callable):
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             chat_id TEXT NOT NULL,
+            project_id TEXT,
             source_question TEXT NOT NULL,
             source_answer TEXT NOT NULL,
             topic TEXT NOT NULL DEFAULT '',
@@ -43,6 +44,9 @@ def migrate(db: Callable):
         CREATE INDEX IF NOT EXISTS idx_teacher_lessons_chat
             ON teacher_lessons(user_id, chat_id, updated DESC);
         """)
+        columns={row["name"] for row in c.execute("PRAGMA table_info(teacher_lessons)")}
+        if "project_id" not in columns:
+            c.execute("ALTER TABLE teacher_lessons ADD COLUMN project_id TEXT")
 
 
 def _clean_list(value, max_items=12, max_len=700):
@@ -77,12 +81,14 @@ def parse_analysis(raw: str) -> dict:
         confidence = 0.0
     confidence = max(0.0, min(1.0, confidence))
     unclear = _clean_list(data.get("unclear"), 8, 500)
-    understood = bool(data.get("understood", False)) and not unclear
+    understood = bool(data.get("understood", False)) and not unclear and confidence >= 0.72
     question = data.get("clarification_question")
     if question is not None:
         question = " ".join(str(question).split()).strip()[:1200] or None
-    if not understood and not question and unclear:
-        question = "Пожалуйста, уточните: " + unclear[0]
+    if not understood and not question:
+        question = ("Пожалуйста, уточните: " + unclear[0]) if unclear else (
+            "Объясните это ещё раз другими словами и приведите короткий пример, "
+            "чтобы проверить причинную связь.")
     return {
         "topic": topic,
         "summary": summary,
@@ -140,12 +146,13 @@ def teacher_instruction(topic: str) -> str:
 
 
 def create_lesson(c, *, user_id: str, chat_id: str, owner_question: str,
-                  teacher_answer: str, now: int) -> str:
+                  teacher_answer: str, now: int, project_id=None) -> str:
     lesson_id = uuid.uuid4().hex
     c.execute("""INSERT INTO teacher_lessons
-        (id,user_id,chat_id,source_question,source_answer,created,updated)
-        VALUES(?,?,?,?,?,?,?)""",
-        (lesson_id, user_id, chat_id, owner_question[:20000], teacher_answer[:30000], now, now))
+        (id,user_id,chat_id,project_id,source_question,source_answer,created,updated)
+        VALUES(?,?,?,?,?,?,?,?)""",
+        (lesson_id, user_id, chat_id, project_id, owner_question[:20000],
+         teacher_answer[:30000], now, now))
     return lesson_id
 
 
@@ -195,18 +202,73 @@ def lesson(c, *, user_id: str, lesson_id: str):
 
 def recent_lessons(c, *, user_id: str, chat_id=None, limit: int = 20) -> list[dict]:
     if chat_id:
-        rows = c.execute("""SELECT id,chat_id,topic,summary,confidence,status,
+        rows = c.execute("""SELECT id,chat_id,project_id,topic,summary,confidence,status,
                                   clarification_rounds,created,updated
                            FROM teacher_lessons WHERE user_id=? AND chat_id=?
                            ORDER BY updated DESC LIMIT ?""",
                          (user_id, chat_id, max(1, min(limit, 100)))).fetchall()
     else:
-        rows = c.execute("""SELECT id,chat_id,topic,summary,confidence,status,
+        rows = c.execute("""SELECT id,chat_id,project_id,topic,summary,confidence,status,
                                   clarification_rounds,created,updated
                            FROM teacher_lessons WHERE user_id=?
                            ORDER BY updated DESC LIMIT ?""",
                          (user_id, max(1, min(limit, 100)))).fetchall()
     return [dict(row) for row in rows]
+
+
+
+def _lesson_tokens(text: str) -> set[str]:
+    return {token.casefold() for token in re.findall(r"[0-9A-Za-zА-Яа-яЁё_-]+", text or "")
+            if len(token) > 2}
+
+
+def lesson_context(c, *, user_id: str, query: str, project_id=None, limit: int = 5) -> str:
+    qtokens=_lesson_tokens(query)
+    if not qtokens:
+        return ""
+    rows=c.execute("""SELECT id,chat_id,project_id,topic,summary,analysis_json,
+                             confidence,status,updated
+                      FROM teacher_lessons
+                      WHERE user_id=? AND status IN ('understood','partial')
+                        AND (project_id IS NULL OR project_id='' OR project_id=?)
+                      ORDER BY updated DESC LIMIT 200""",
+                   (user_id, project_id or "")).fetchall()
+    scored=[]
+    for row in rows:
+        item=dict(row)
+        try:
+            analysis=json.loads(item["analysis_json"])
+        except (TypeError,ValueError,json.JSONDecodeError):
+            analysis={}
+        body=" ".join([
+            item.get("topic") or "", item.get("summary") or "",
+            " ".join(str(x) for x in analysis.get("claims",[]) if isinstance(x,str)),
+            " ".join(
+                str(x.get("name",""))+" "+str(x.get("explanation",""))
+                for x in analysis.get("concepts",[]) if isinstance(x,dict)
+            )
+        ])
+        tokens=_lesson_tokens(body)
+        overlap=len(qtokens & tokens)/max(1,len(qtokens))
+        if overlap < .12:
+            continue
+        scored.append((overlap,item))
+    scored.sort(key=lambda pair:(pair[0],pair[1].get("confidence",0),pair[1].get("updated",0)),reverse=True)
+    selected=scored[:max(1,min(limit,10))]
+    if not selected:
+        return ""
+    lines=[
+        "Уроки учителя 3.3 — материал, который Sayuri поняла из объяснений наставника; "
+        "это источник для рассуждения, но не подтверждённый факт:"
+    ]
+    for score,item in selected:
+        project=(" · проект "+item["project_id"]) if item.get("project_id") else ""
+        lines.append(
+            f"- [{item['status']} · понимание {float(item.get('confidence') or 0):.0%}"
+            f"{project} · teacher-chat:{item['chat_id']}] "
+            f"{(item.get('topic') or 'Без темы')}: {(item.get('summary') or '')[:900]}"
+        )
+    return "\n".join(lines)
 
 
 def summary(c, *, user_id: str) -> dict:
