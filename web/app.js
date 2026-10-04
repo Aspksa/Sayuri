@@ -488,12 +488,14 @@ function setupDriveDropTarget(node,destination){
  if(node.dataset.dropBound==='true')return;
  node.dataset.dropBound='true';
  node.addEventListener('dragover',event=>{
-  const source=event.dataTransfer.types.includes('text/x-sayuri-drive-path');
-  if(!source)return;event.preventDefault();event.dataTransfer.dropEffect='move';node.classList.add('drop-target');
+  const types=[...event.dataTransfer.types];
+  const source=types.includes('text/x-sayuri-drive-path');
+  if(!source)return;event.preventDefault();event.stopPropagation();
+  event.dataTransfer.dropEffect='move';node.classList.add('drop-target');
  });
  node.addEventListener('dragleave',event=>{if(!node.contains(event.relatedTarget))node.classList.remove('drop-target')});
  node.addEventListener('drop',async event=>{
-  event.preventDefault();node.classList.remove('drop-target');
+  event.preventDefault();event.stopPropagation();node.classList.remove('drop-target');
   const source=event.dataTransfer.getData('text/x-sayuri-drive-path');
   const target=node.dataset.dropDestination||'';
   if(!source||source===target)return;
