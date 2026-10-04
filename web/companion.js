@@ -11,7 +11,7 @@
     "task_started", "task_progress", "task_failed", "task_finished",
     "memory_updated", "contradiction_detected"
   ]);
-  const modules = {account:"Личный кабинет",chat:"Единый чат",
+  const modules = {account:"Личный кабинет",beyond:"SAYURI BEYOND",chat:"Единый чат",
     files:"Документы / Облако / Sayuri",work:"Рабочие проекты",
     home:"Домашние проекты",updates:"Обновление проекта"};
   let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null};
