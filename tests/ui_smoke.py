@@ -1,5 +1,6 @@
 """Browser smoke tests: pixel widths, keyboard drawer, footer, real backend startup."""
 from __future__ import annotations
+import json
 import os
 import subprocess
 import sys
@@ -153,7 +154,41 @@ def run():
                         personality_presence=page.evaluate("window.SayuriPresence.getSnapshot()")
                         assert personality_presence["personalityState"]=="analytical",(width,personality_presence)
                         page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
-                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))")
+                        # Initiative 3.5: BEYOND receives one guarded proactive offer and records reaction.
+                        initiative_reactions=[]
+                        def initiative_next_route(route):
+                            route.fulfill(status=200,content_type="application/json",body=json.dumps({
+                                "version":"3.5.0","reason":"offer","item":{
+                                    "id":"smoke-initiative","kind":"continuity","score":75,
+                                    "threshold":60,"text":"У нас осталось незавершённое: тестовая задача. Продолжим?",
+                                    "reason":"Тест сохранённого контекста.","source_id":"thread-smoke",
+                                    "project_id":None,"target_view":None,
+                                    "actions":["accepted","dismissed","less"]
+                                }
+                            },ensure_ascii=False))
+                        def initiative_reaction_route(route):
+                            initiative_reactions.append(route.request.post_data_json)
+                            route.fulfill(status=200,content_type="application/json",body=json.dumps({
+                                "ok":True,"reaction":"accepted","kind":"continuity",
+                                "target_view":None,"engagement":0.12,"ignored_streak":0
+                            }))
+                        page.route("**/api/initiative/next*",initiative_next_route)
+                        page.route("**/api/initiative/smoke-initiative/reaction",initiative_reaction_route)
+                        page.evaluate("""window.dispatchEvent(new CustomEvent('sayuri:initiative-check',{
+                          detail:{trigger:'project',project_id:null,module:'beyond'}}))""")
+                        page.wait_for_function("() => document.querySelector('#foxPanelMessage')?.textContent.includes('незавершённое')")
+                        assert page.locator("#foxPanel").is_visible(),width
+                        assert page.locator("#foxPanelTitle").inner_text()=="Саюри предлагает",width
+                        assert page.locator("#foxPanelActions").is_visible(),width
+                        assert page.locator("[data-initiative-reaction='accepted']").inner_text()=="Продолжить",width
+                        presence_initiative=page.evaluate("window.SayuriPresence.getSnapshot()")
+                        assert presence_initiative["initiativeKind"]=="continuity",(width,presence_initiative)
+                        page.locator("[data-initiative-reaction='accepted']").click()
+                        page.wait_for_function("() => document.querySelector('#foxPanel').hidden")
+                        assert initiative_reactions and initiative_reactions[-1]["reaction"]=="accepted",(width,initiative_reactions)
+                        page.unroute("**/api/initiative/next*",initiative_next_route)
+                        page.unroute("**/api/initiative/smoke-initiative/reaction",initiative_reaction_route)
+                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))
                         page.wait_for_function("() => document.querySelector('#foxShell')?.dataset.motionState === 'thinking'")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="thinking",width
                         page.wait_for_function("() => document.querySelector('#foxMotionState')?.textContent === 'Размышляет'")
