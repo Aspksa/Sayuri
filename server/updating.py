@@ -77,7 +77,7 @@ def apply_git_update(root: Path) -> dict:
         _git(root,"merge-base","--is-ancestor",old,new)
         # Snapshot must complete BEFORE any code change.
         from backup import main as create_backup
-        if create_backup()!=0:
+        if create_backup(root)!=0:
             raise UpdateError("Не удалось создать резервную копию; обновление отменено")
         _git(root,"merge","--ff-only",new,timeout=120)
         return {"updated":True,"restart_required":True,
@@ -230,12 +230,16 @@ def prepare_zip_update(root: Path) -> dict:
             return {"updated":False,"restart_required":False,"version":head[:12]}
         output=root.parent/(root.name+"-new-"+head[:12])
         if output.exists():
+            if output.is_dir() and _installed_sha(output)==head:
+                return {"updated":True,"restart_required":True,"mode":"zip",
+                        "version":head[:12],"new_folder":str(output),
+                        "message":"Обновление уже подготовлено. Запустите Sayuri.bat в новой папке."}
             raise UpdateError("Папка новой версии уже существует: "+output.name)
         # Make an independent backup of the currently used SQLite and attachments.
         from backup import main as backup
         # New installations can be updated before the initial SQLite DB exists.
         from server.paths import data_root
-        if (data_root(root)/"sayuri.sqlite3").is_file() and backup()!=0:
+        if (data_root(root)/"sayuri.sqlite3").is_file() and backup(root)!=0:
             raise UpdateError("Не удалось создать резервную копию базы")
         with tempfile.TemporaryDirectory(prefix="sayuri-zip-",dir=root.parent) as work:
             archive=Path(work)/"source.zip"
