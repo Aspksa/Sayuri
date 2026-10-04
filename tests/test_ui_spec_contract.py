@@ -73,3 +73,18 @@ def test_mobile_keyboard_and_sidebar_interaction_are_wired():
     assert "document.body.classList.toggle('sidebar-collapsed')" in SIDEBAR
     assert "localStorage.setItem('sayuri.sidebar.collapsed'" in SIDEBAR
     assert "getClientRects()" in SIDEBAR
+
+
+def test_sidebar_text_contrast_wcag_aa():
+    colors=SPEC["design_tokens"]["colors"]
+    def luminance(value):
+        srgb=[int(value[i:i+2],16)/255 for i in (1,3,5)]
+        linear=[v/12.92 if v<=0.04045 else ((v+0.055)/1.055)**2.4 for v in srgb]
+        return sum(a*b for a,b in zip((0.2126,0.7152,0.0722),linear))
+    def contrast(foreground,background):
+        a,b=sorted((luminance(colors[foreground]),luminance(colors[background])),reverse=True)
+        return (a+0.05)/(b+0.05)
+    for background in ("sidebar_background","surface"):
+        for foreground in ("primary_text","secondary_text","tertiary_text",
+                           "accent_pink","accent_purple","info","success","warning","error"):
+            assert contrast(foreground,background)>=4.5,(foreground,background)
