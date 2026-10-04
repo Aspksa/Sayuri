@@ -77,6 +77,8 @@ def run():
                         assert page.locator("#foxMotionState").inner_text()=="Размышляет",width
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'completed'}}))")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="happy",width
+                        page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:'files',entity_type:'document',entity_id:'demo'}}))")
+                        assert page.locator("#foxShell").get_attribute("data-motion-state")=="reading",width
                         page.locator("#foxResetPosition").click()
                         reset_fox=page.locator("#foxAvatar").bounding_box()
                         assert reset_fox and reset_fox["x"] > width/2,(width,reset_fox)
