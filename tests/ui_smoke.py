@@ -295,6 +295,7 @@ def run():
 
                         folder_card.locator("button").filter(has_text="Открыть").click()
                         page.wait_for_function("name => document.querySelector('#documentsCurrentFolder').textContent === name",arg=folder_name)
+                        page.wait_for_function("() => document.querySelector('#documentsCurrentFolderCard')?.dataset.folderColor === 'cyan'")
                         assert not page.locator("#documentsParentFolder").is_disabled(),width
                         assert folder_name in page.locator("#documentsCurrentPath").inner_text(),width
                         assert page.locator("#documentsCurrentFolderCard").get_attribute("data-folder-color")=="cyan",width
