@@ -302,3 +302,21 @@ body.fox-quiet .fox-avatar>img{animation:none!important}
 .fox-presence-status strong{font-size:11px;color:#cfe4fa}
 .fox-presence-status small{grid-column:1/-1;font-size:10px;line-height:1.4;color:#98a5b3}
 @media(max-width:767px){.fox-presence-grid{grid-template-columns:1fr}.fox-presence-grid button{min-height:50px!important}}
+
+
+/* SAYURI 4.13.0 — Initiative 3.5 actions in BEYOND presence panel. */
+.fox-panel-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.fox-panel-actions[hidden]{display:none!important}
+.fox-panel-actions button{
+ min-height:32px;padding:6px 9px;border:1px solid #735a78;border-radius:8px;
+ background:#332b40;color:#f5deed;font-size:10px;text-align:center
+}
+.fox-panel-actions button:hover,.fox-panel-actions button:focus-visible{background:#493752}
+.fox-panel-actions button[data-initiative-reaction="accepted"]{
+ background:#514261;border-color:#9277a3;color:#fff1fb
+}
+.fox-panel-actions button[data-initiative-reaction="less"]{color:#b9adb9;background:#282631}
+@media(max-width:767px){
+ .fox-panel-actions{display:grid;grid-template-columns:1fr 1fr}
+ .fox-panel-actions button{width:100%}
+}
