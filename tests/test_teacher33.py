@@ -166,3 +166,37 @@ async def test_auto_teacher_learning_does_not_ask_when_understood(tmp_path,monke
         row=dict(c.execute("SELECT * FROM teacher_lessons").fetchone())
         assert row["status"]=="understood"
         assert row["clarification_rounds"]==0
+
+def test_teacher_lesson_context_respects_project_scope(tmp_path):
+    db=_prepare(tmp_path/"teacher.sqlite3")
+    with db() as c:
+        alpha=teacher33.create_lesson(
+            c,user_id="owner",chat_id="chat-a",project_id="work:Alpha",
+            owner_question="Объясни память проекта.",
+            teacher_answer="Проектная память изолирована.",now=100)
+        teacher33.save_analysis(c,lesson_id=alpha,analysis={
+            "topic":"Проектная память",
+            "summary":"Память проекта Alpha должна использоваться только внутри Alpha.",
+            "concepts":[],"claims":["Изоляция проекта"],"examples":[],"methods":[],
+            "unclear":[],"owner_facts":[],"confidence":.95,"understood":True,
+            "clarification_question":None
+        },rounds=0,now=101)
+        beta=teacher33.create_lesson(
+            c,user_id="owner",chat_id="chat-b",project_id="work:Beta",
+            owner_question="Объясни память проекта.",
+            teacher_answer="Проектная память изолирована.",now=102)
+        teacher33.save_analysis(c,lesson_id=beta,analysis={
+            "topic":"Проектная память",
+            "summary":"Память проекта Beta хранит отдельный контекст.",
+            "concepts":[],"claims":["Изоляция проекта"],"examples":[],"methods":[],
+            "unclear":[],"owner_facts":[],"confidence":.92,"understood":True,
+            "clarification_question":None
+        },rounds=0,now=103)
+
+        alpha_context=teacher33.lesson_context(
+            c,user_id="owner",query="память проекта контекст",
+            project_id="work:Alpha",limit=5)
+        assert "Alpha" in alpha_context
+        assert "Beta" not in alpha_context
+        assert "не подтверждённый факт" in alpha_context
+
