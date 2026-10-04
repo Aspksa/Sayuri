@@ -8,6 +8,8 @@ import hashlib
 import json
 import os
 import struct
+import io
+import zipfile
 from pathlib import Path
 
 from fastapi import File, Header, HTTPException, UploadFile
@@ -105,6 +107,48 @@ def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
         finally:
             temporary.unlink(missing_ok=True)
         return {"kind": kind, "width": width, "height": height}
+
+    @app.post("/api/companion/pack")
+    async def upload_companion_pack(
+        pack: UploadFile = File(...), authorization: str | None = Header(None)
+    ):
+        owner = auth(authorization)
+        # Only the two expected names may be present; no paths, links or code.
+        content = await pack.read(18 * 1024 * 1024 + 1)
+        if len(content) > 18 * 1024 * 1024:
+            raise HTTPException(413, "Комплект Саюри больше 18 МБ")
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                names = [item.filename for item in archive.infolist()
+                         if not item.is_dir()]
+                if sorted(names) not in (
+                    ["full.png", "portrait.png"],
+                    ["README.txt", "full.png", "portrait.png"]
+                ):
+                    raise HTTPException(400, "В архиве нужны portrait.png и full.png")
+                images = {}
+                for kind in ("portrait", "full"):
+                    item = archive.getinfo(kind + ".png")
+                    if item.file_size > MAX_IMAGE_BYTES:
+                        raise HTTPException(413, "Изображение превышает 9 МБ")
+                    payload = archive.read(item)
+                    check_png(payload)
+                    images[kind] = payload
+        except (zipfile.BadZipFile, KeyError) as exc:
+            raise HTTPException(400, "Некорректный ZIP-комплект") from exc
+        # Validate both before writing. Existing appearance files remain intact
+        # if the supplied ZIP is corrupt.
+        for kind, payload in images.items():
+            path = image_path(data_root, owner, kind)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = path.with_suffix(".tmp")
+            try:
+                with temporary.open("wb") as output:
+                    output.write(payload)
+                os.replace(temporary, path)
+            finally:
+                temporary.unlink(missing_ok=True)
+        return {"ok": True, "images": ["portrait", "full"]}
 
     @app.get("/api/companion/image/{kind}")
     def get_companion_image(kind: str, authorization: str | None = Header(None)):
