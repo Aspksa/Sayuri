@@ -3,26 +3,21 @@ async function api(path,method='GET',data=null){const opts={method,headers:{}};i
 function fail(e){$('#error').textContent=e.message||String(e)}
 async function sign(up=false){try{const password=$('#password').value;if(!password){throw Error('Введите пароль владельца')}if(up&&password.length<12){throw Error('Для первого запуска пароль должен содержать не менее 12 символов')}if(up)await api('/auth/setup','POST',{password});const v=await api('/auth/login','POST',{password});token=v.token;sessionStorage.setItem('sayuri_token',token);$('#gate').classList.add('hidden');$('#password').value='';await refresh()}catch(e){$('#gateError').textContent=e.message}}
 function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');document.body.classList.remove('open');if(id==='account')account();if(id==='files')files()}
-function threads(){
- const box=$('#threads');box.replaceChildren();
- const q=$('#search').value.toLowerCase();
- for(const c of chats.filter(x=>(x.title+' '+(x.kind||'sayuri')).toLowerCase().includes(q))){
-   const row=document.createElement('div');row.className='line';
-   const b=document.createElement('button');b.textContent=(c.kind==='teacher'?'№02 · ':'№01 · ')+c.title;b.className=active===c.id?'active':'';
-   b.style.flex='1';b.style.minWidth='0';b.style.overflow='hidden';b.style.textOverflow='ellipsis';
-   b.onclick=async()=>{active=c.id;threads();view('chat');await messages()};
-   const del=document.createElement('button');del.textContent='×';del.title='Удалить диалог';del.style.width='auto';
-   del.onclick=async()=>{
-     if(!confirm('Удалить диалог и его сообщения?'))return;
-     try{await api('/chats/'+c.id,'DELETE');if(active===c.id)active=null;await refresh()}catch(e){fail(e)}
-   };
-   row.append(b,del);box.append(row);
- }
+async function refresh(){
+  chats=await api('/chats');
+  // Preserve existing records, but only the one mentor conversation is visible.
+  const mentor=chats.filter(c=>c.kind==='teacher').sort((a,b)=>a.created-b.created)[0];
+  if(mentor){active=mentor.id}else{
+    const created=await api('/chats','POST',{title:'Общий чат',kind:'teacher'});
+    active=created.id;chats.unshift({...created,kind:'teacher'});
+  }
+  $('#title').textContent='Саюри · общий чат';
+  await messages();
+  const state=await api('/health');
+  $('#cloud').textContent=state.mentor_configured?'Наставник подключён':'Наставник: настройте Cloud.ru';
 }
-async function refresh(){chats=await api('/chats');if(!chats.some(c=>c.id===active))active=chats[0]?.id||null;threads();$('#title').textContent=chats.find(c=>c.id===active)?.kind==='teacher'?'№02 · DeepSeek-V4.1-Flash — наставник':'№01 · Саюри — ученица';await messages();const h=await api('/health');$('#cloud').textContent=h.cloud_configured?'Cloud.ru настроен':'Cloud.ru: требуется ключ'}
-async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Здравствуйте, Господин. Выберите чат Саюри или наставника.';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Саюри';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
-async function newChat(kind='sayuri'){try{const c=await api('/chats','POST',{title:kind==='teacher'?'Диалог с наставником':'Новый чат',kind});active=c.id;await refresh();view('chat')}catch(e){fail(e)}}
-async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Саюри отвечает…';try{if(!active){const c=await api('/chats','POST',{title:'Новый чат',kind:'sayuri'});active=c.id}await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
+async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
+async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh()await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
 async function account(){loadPreferences();drawCandidates();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
 async function files(){await projectRoot();try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
   const row=document.createElement('div');row.className='line';
@@ -107,7 +102,7 @@ $('#datasetPreview').onclick=async()=>{
 };
 
 $('#setup').onclick=()=>sign(true);$('#login').onclick=()=>sign();$('#password').onkeydown=e=>{if(e.key==='Enter')sign()};
-$('#new').onclick=()=>newChat('sayuri');$('#newTeacher').onclick=()=>newChat('teacher');$('#search').oninput=threads;$('#menu').onclick=()=>document.body.classList.toggle('open');
+$('#menu').onclick=()=>document.body.classList.toggle('open');
 $('#showChat').onclick=()=>view('chat');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
 $('#logout').onclick=async()=>{try{await api('/auth/logout','POST')}catch{}sessionStorage.removeItem('sayuri_token');location.reload()};
