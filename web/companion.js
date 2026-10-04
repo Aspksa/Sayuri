@@ -27,6 +27,7 @@
   let spatialObserver=null,spatialResizeObserver=null,spatialReflowTimer=null;
   let contextReturnTimer=null,lastContextReaction=null;
   let lastPresenceAt=0,presenceWindow=[],lastVoiceAt=0,presenceSequence=0;
+  let initiativeTimer=null,lastInitiativeCheckAt=0,activeInitiative=null;
   const presenceDedupe=new Map();
   const spatialPadding=12;
   const token = () => sessionStorage.getItem("sayuri_token") || "";
@@ -67,6 +68,10 @@
       approachEvent(detail.type);
   }
   window.addEventListener("sayuri:context",e=>dispatch(e.detail));
+  window.addEventListener("sayuri:initiative-check",e=>{
+    const detail=e.detail||{};
+    setTimeout(()=>checkInitiative(detail.trigger||"project",detail.project_id||null),180);
+  });
   const motionNames={
     idle:"Ожидает",walking:"Идёт",thinking:"Размышляет",reading:"Изучает",
     working:"Работает",happy:"Радуется",attention:"Требует внимания",sleep:"Спит"
@@ -212,6 +217,10 @@
     }[state];
     if(motion&&motionState!=="walking")setMotionState(motion,{temporary:2200});
   });
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden&&Date.now()-lastInitiativeCheckAt>5*60*1000)
+      setTimeout(()=>checkInitiative("focus"),500);
+  });
   window.SayuriContext = Object.freeze({getCurrent:()=>({module:moduleName,selected,
     latestEvent:recentEvent})});
   window.SayuriSpatial = Object.freeze({
@@ -231,6 +240,8 @@
     getSnapshot:()=>({
       mode:settings.presence,voiceImportant:settings.voice_important,
       personalityState,
+      initiativeKind:activeInitiative?.kind||null,
+      lastInitiativeCheckAt,
       lastPresenceAt,windowCount:presenceWindow.filter(at=>Date.now()-at<300000).length,
       sequence:presenceSequence
     }),
@@ -800,11 +811,20 @@
     scheduleBehavior();
     startSleepWatch();
     startSpatialAwareness();
+    scheduleInitiativeChecks();
+    setTimeout(()=>checkInitiative("session"),1400);
     // Quiet state explicitly controls scripted greetings, not real warning events.
     el("foxAppearanceStatus").textContent="Образ хранится локально. Правый клик по Саюри открывает отдельное окно настроек.";
   }
-  function message(text){
-    if(settings.quiet && !/ошибка|нет связи|недоступн/i.test(text))return;
+  function clearPanelActions(){
+    const actions=el("foxPanelActions");if(!actions)return;
+    actions.replaceChildren();actions.hidden=true;
+    activeInitiative=null;
+    const title=el("foxPanelTitle");if(title)title.textContent="Саюри рядом";
+  }
+  function message(text,{keepActions=false}={}){
+    if(settings.quiet && !/ошибка|нет связи|недоступн/i.test(text))return false;
+    if(!keepActions)clearPanelActions();
     panel.hidden=false;
     panel.style.transform="none";
     el("foxPanelMessage").textContent=text;
@@ -812,6 +832,75 @@
     const dx=box.left<8?8-box.left:box.right>innerWidth-8?innerWidth-8-box.right:0;
     const dy=box.top<8?8-box.top:box.bottom>innerHeight-8?innerHeight-8-box.bottom:0;
     panel.style.transform="translate("+dx+"px,"+dy+"px)";
+    return true;
+  }
+  const initiativeReactionLabels={
+    accepted:{problem:"Посмотреть",commitment:"Вернуться",continuity:"Продолжить",
+      teacher_topic:"Продолжить",project_help:"Помочь",greeting:"Хорошо",social:"Поговорим"},
+    resolved:{problem:"Проблема решена",commitment:"Уже выполнено",continuity:"Закрыть"},
+    dismissed:{default:"Не сейчас"},less:{default:"Реже"}
+  };
+  function initiativeLabel(reaction,kind){
+    return initiativeReactionLabels[reaction]?.[kind]||
+      initiativeReactionLabels[reaction]?.default||reaction;
+  }
+  async function reactInitiative(reaction){
+    const item=activeInitiative;if(!item)return;
+    try{
+      const response=await fetch("/api/initiative/"+encodeURIComponent(item.id)+"/reaction",{
+        method:"POST",headers:{...authHeaders(),"Content-Type":"application/json"},
+        body:JSON.stringify({reaction})
+      });
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const result=await response.json();
+      if(reaction==="accepted"&&result.target_view)navigate(result.target_view);
+      panel.hidden=true;clearPanelActions();
+    }catch{
+      message("Не удалось сохранить реакцию на инициативу.");
+    }
+  }
+  function showInitiative(item){
+    if(!item||settings.quiet||!settings.enabled)return false;
+    activeInitiative=item;
+    const title=el("foxPanelTitle");if(title)title.textContent="Саюри предлагает";
+    const actions=el("foxPanelActions");actions.replaceChildren();actions.hidden=false;
+    for(const reaction of item.actions||["accepted","dismissed","less"]){
+      const button=document.createElement("button");button.type="button";
+      button.dataset.initiativeReaction=reaction;
+      button.textContent=initiativeLabel(reaction,item.kind);
+      button.onclick=()=>reactInitiative(reaction);
+      actions.append(button);
+    }
+    const shown=message(item.text,{keepActions:true});
+    if(shown){
+      const motion=item.kind==="problem"?"attention":
+        item.kind==="commitment"||item.kind==="continuity"?"thinking":"happy";
+      setMotionState(motion,{temporary:3200});
+      shell.dataset.initiativeKind=item.kind;
+    }
+    return shown;
+  }
+  async function checkInitiative(trigger="periodic",projectOverride=null){
+    if(!usable()||!initialized||!settings.enabled||settings.quiet||document.hidden)return false;
+    const now=Date.now();
+    if(trigger==="periodic"&&now-lastInitiativeCheckAt<8*60*1000)return false;
+    if(activeInitiative&&!panel.hidden)return false;
+    lastInitiativeCheckAt=now;
+    const projectId=projectOverride||document.body.dataset.activeProjectMemoryId||"";
+    const params=new URLSearchParams({trigger,module:moduleName});
+    if(projectId)params.set("project_id",projectId);
+    try{
+      const response=await fetch("/api/initiative/next?"+params.toString(),{
+        headers:authHeaders(),cache:"no-store"});
+      if(!response.ok)return false;
+      const data=await response.json();
+      if(data.item)return showInitiative(data.item);
+    }catch{}
+    return false;
+  }
+  function scheduleInitiativeChecks(){
+    if(initiativeTimer)clearInterval(initiativeTimer);
+    initiativeTimer=setInterval(()=>checkInitiative("periodic"),10*60*1000);
   }
   function navigate(viewId){
     const button=el(({chat:"showChat",account:"showAccount",beyond:"showBeyond",files:"showFiles",
@@ -891,7 +980,7 @@
     profile:()=>navigate("account"),
     settings:()=>openMenu(),
     quiet:async()=>{settings.quiet=!settings.quiet;fallbackDimensions();
-      if(settings.quiet){panel.hidden=true;if("speechSynthesis" in window)speechSynthesis.cancel();}
+      if(settings.quiet){panel.hidden=true;clearPanelActions();if("speechSynthesis" in window)speechSynthesis.cancel();}
       await saveSettings();},
     minimize:()=>chooseMode(settings.mode==="compact"?"floating":"compact"),
     reset:async()=>{settings.scale=1;settings.x=null;settings.y=null;
@@ -933,7 +1022,7 @@
   document.addEventListener("keydown",e=>{
     if(e.key==="Escape"){
       if(!menu.hidden){e.preventDefault();e.stopPropagation();closeMenu(true);}
-      else if(!panel.hidden)panel.hidden=true;
+      else if(!panel.hidden){panel.hidden=true;clearPanelActions();}
     }
   });
   document.addEventListener("pointerdown",e=>{
@@ -941,7 +1030,7 @@
     if(!menu.hidden && !menu.contains(e.target) && !avatar.contains(e.target))closeMenu();
   });
   document.addEventListener("keydown",noteInteraction,{passive:true});
-  el("foxPanelClose").onclick=()=>panel.hidden=true;
+  el("foxPanelClose").onclick=()=>{panel.hidden=true;clearPanelActions()};
   // Long press 650ms; cancel on drag over 12px.
   avatar.addEventListener("pointerdown",e=>{
     if(e.button!==0)return;
@@ -1096,6 +1185,7 @@
     if(autoMoveTimer)clearTimeout(autoMoveTimer);
     if(motionTimer)clearTimeout(motionTimer);
     if(sleepWatchTimer)clearInterval(sleepWatchTimer);
+    if(initiativeTimer)clearInterval(initiativeTimer);
     if(spatialObserver)spatialObserver.disconnect();
     if(spatialResizeObserver)spatialResizeObserver.disconnect();
     clearTimeout(spatialReflowTimer);
