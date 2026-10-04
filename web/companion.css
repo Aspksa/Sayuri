@@ -1,4 +1,4 @@
-/* BEYOND 2.0: intentionally independent of the existing page layout. */
+/* BEYOND 2.1: persistent character + dedicated settings window. */
 .fox-shell{--fox-scale:1;position:fixed;left:auto;top:auto;right:20px;bottom:98px;
  width:98px;height:98px;z-index:35;pointer-events:none;
  touch-action:none;user-select:none;-webkit-user-select:none}
@@ -128,4 +128,55 @@ body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
 @media(max-width:767px){
   body[data-active-view="updates"] .fox-shell{width:50px;height:50px}
   body[data-active-view="updates"] .fox-shell .fox-avatar{border-radius:14px}
+}
+
+
+/* SAYURI 4.1 — all BEYOND controls live in a dedicated settings window. */
+.beyond-settings-entry{display:flex;align-items:center;justify-content:space-between;gap:16px;
+ margin:18px 0;padding:16px 18px;border:1px solid #765a7a;border-radius:15px;background:#28243a}
+.beyond-settings-entry>div{display:grid;gap:4px;min-width:0}
+.beyond-settings-entry strong{color:#ffe0f0;font-size:15px}
+.beyond-settings-entry span{color:#cdbfd2;font-size:12px;line-height:1.5}
+#foxSettingsOpen{flex:0 0 auto;min-height:44px;background:#f1acd2;color:#271d2b;font-weight:750}
+
+.fox-context-menu{left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;
+ transform:translate(-50%,-50%);width:min(720px,calc(100vw - 32px));max-height:min(84vh,780px);
+ padding:0;border-radius:20px;overflow:hidden;background:#211f31;border:1px solid #9e739d;
+ box-shadow:0 26px 90px #000c;z-index:80}
+.fox-settings-head{display:flex;align-items:center;justify-content:space-between;gap:18px;
+ padding:18px 20px;border-bottom:1px solid #5c4964;background:linear-gradient(120deg,#3a2a43,#272437)}
+.fox-settings-head>div{display:grid;gap:3px}
+.fox-settings-kicker{font-size:10px;letter-spacing:.13em;font-weight:800;color:#efb5d4}
+.fox-settings-head strong{font-size:20px;color:#fff0f7}
+.fox-settings-head small{font-size:11px;color:#c9b9ca}
+#foxSettingsClose{width:40px!important;min-width:40px;min-height:40px!important;padding:0!important;
+ border:1px solid #725b79!important;border-radius:12px!important;background:#30283b!important;
+ text-align:center!important;font-size:22px!important}
+.fox-settings-scroll{max-height:calc(min(84vh,780px) - 88px);overflow:auto;padding:16px}
+.fox-settings-section{padding:16px;border:1px solid #4c4155;border-radius:15px;background:#282638;margin:0 0 12px}
+.fox-settings-section:last-child{margin-bottom:0}
+.fox-settings-section h3{margin:0 0 12px;color:#ffe0f0;font-size:15px}
+.fox-settings-help,.fox-settings-status{margin:9px 0 0;color:#cdbfd2;font-size:12px;line-height:1.55}
+.fox-settings-action-grid,.fox-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.fox-settings-action-grid button,.fox-mode-grid button{min-height:44px!important;margin:0!important;
+ border:1px solid #5f506a!important;background:#342e43!important}
+.fox-settings-action-grid button:hover,.fox-mode-grid button:hover{background:#493850!important}
+.fox-mode-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px}
+.fox-mode-grid button[aria-pressed="true"]{border-color:#efb5d4!important;background:#563d59!important;color:#ffe4f2!important}
+.fox-scale-control{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;
+ margin:4px 0 14px;padding:12px 13px;border:1px solid #4c4155;border-radius:12px;background:#211f31}
+.fox-scale-control span{font-size:12px;color:#d7c8df}
+.fox-scale-control strong{font-size:12px;color:#ffd1e8}
+.fox-scale-control input{grid-column:1/-1;width:100%;margin:0}
+.fox-context-menu .fox-pack-label{margin-bottom:12px}
+.fox-context-menu .fox-upload-grid input{width:100%}
+.fox-context-menu code{color:#e8d2f0}
+@media(max-width:767px){
+ .beyond-settings-entry{align-items:stretch;flex-direction:column;padding:14px}
+ #foxSettingsOpen{width:100%}
+ .fox-context-menu{width:calc(100vw - 16px);max-height:88dvh;border-radius:16px}
+ .fox-settings-scroll{max-height:calc(88dvh - 82px);padding:10px}
+ .fox-settings-head{padding:14px}
+ .fox-settings-action-grid,.fox-mode-grid{grid-template-columns:1fr}
+ .fox-settings-section{padding:13px}
 }
