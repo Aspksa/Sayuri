@@ -92,6 +92,22 @@ def run():
                         reaction=page.evaluate("window.SayuriReactions.getSnapshot()")
                         assert reaction and reaction["entity_type"]=="document",(width,reaction)
                         assert page.locator("#foxContextState").inner_text()=="Документ",width
+                        page.evaluate("""() => {
+                          const target=document.createElement('div');
+                          target.id='contextReactionTarget';
+                          target.dataset.sayuriEntityType='document';
+                          target.dataset.sayuriEntityId='docs/exact-demo.txt';
+                          target.dataset.sayuriModule='files';
+                          Object.assign(target.style,{position:'fixed',left:'40px',top:'260px',width:'180px',
+                            height:'70px',zIndex:'2',pointerEvents:'none'});
+                          document.body.append(target);
+                          window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{
+                            type:'document_opened',module:'files',entity_type:'file',
+                            entity_id:'docs/exact-demo.txt'}}));
+                        }""")
+                        exact_reaction=page.evaluate("window.SayuriReactions.getSnapshot()")
+                        assert exact_reaction and exact_reaction["exact"] is True,(width,exact_reaction)
+                        page.evaluate("document.getElementById('contextReactionTarget')?.remove()")
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'task_failed',module:'chat',entity_type:'task',entity_id:'smoke-task'}}))")
                         task_reaction=page.evaluate("window.SayuriReactions.getSnapshot()")
                         assert task_reaction and task_reaction["title"]=="Ошибка задачи",(width,task_reaction)
