@@ -318,6 +318,21 @@
     settings.scale=bound(Math.round((settings.scale+(e.deltaY>0?-.05:.05))*100)/100,.7,1.4);
     position();saveSettings();
   },{passive:false});
+  el("foxPackUpload").addEventListener("change",async e=>{
+    const pack=e.target.files[0];
+    if(!pack)return;
+    el("foxAppearanceStatus").textContent="Проверяю и загружаю комплект образов…";
+    const form=new FormData();form.append("pack",pack);
+    try{
+      const result=await fetch("/api/companion/pack",{
+        method:"POST",headers:authHeaders(),body:form});
+      if(!result.ok)throw Error((await result.json()).detail||"HTTP "+result.status);
+      el("foxAppearanceStatus").textContent="Портрет и полный образ Саюри установлены.";
+      await updateImage();
+    }catch(error){
+      el("foxAppearanceStatus").textContent="Комплект не установлен: "+error.message;
+    }finally{e.target.value="";}
+  });
   for(const [id,kind] of [["foxPortraitUpload","portrait"],["foxFullUpload","full"]]){
     el(id).addEventListener("change",async e=>{
       const file=e.target.files[0];if(!file)return;
