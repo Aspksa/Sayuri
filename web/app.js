@@ -79,7 +79,7 @@ async function showProject(category,relative=''){
   }catch(e){const warning=document.createElement('p');warning.textContent=e.message;target.append(warning)}
 }
 async function projectDownload(category,path,name){
-  window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:category,entity_type:'file',entity_id:name}}));
+  window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:category,entity_type:'file',entity_id:path}}));
   try{
     const url='/api/projects/'+category+'/file?path='+encodeURIComponent(path);
     const res=await fetch(url,{headers:{Authorization:'Bearer '+token}});
@@ -387,7 +387,7 @@ async function loadDrive(relative=driveCurrent){
  }catch(e){info.textContent='Хранилище недоступно: '+e.message}
 }
 async function driveDownload(path,name){
- window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:'files',entity_type:'file',entity_id:name}}));
+ window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:'files',entity_type:'file',entity_id:path}}));
  try{
   const res=await fetch('/api/drive/download?path='+encodeURIComponent(path),{headers:{Authorization:'Bearer '+token}});
   if(!res.ok)throw Error('Ошибка загрузки '+res.status);
@@ -408,7 +408,9 @@ $('#driveFileInput').onchange=async()=>{
  for(const file of files){
   const payload=new FormData();payload.append('file',file);payload.append('path',driveCurrent);
   try{await api('/drive/upload','POST',payload);
-   window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_uploaded',module:'files',entity_type:'file',entity_id:file.name}}));
+   window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{
+    type:'document_uploaded',module:'files',entity_type:'file',
+    entity_id:(driveCurrent?driveCurrent+'/':'')+file.name}}));
   }catch(e){alert(file.name+': '+e.message)}
  }
  input.value='';await loadDrive();
