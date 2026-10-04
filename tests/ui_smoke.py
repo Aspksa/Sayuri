@@ -78,6 +78,13 @@ def run():
                         assert page.locator("#foxContextState").is_visible(),width
                         assert page.locator("#foxPresenceState").is_visible(),width
                         assert page.locator("#foxVoiceImportant").is_visible(),width
+                        assert page.locator("#foxVoiceImportant").get_attribute("aria-pressed")=="true",width
+                        page.locator("#foxVoiceImportant").click()
+                        voice_off=page.evaluate("window.SayuriPresence.getSnapshot()")
+                        assert voice_off["voiceImportant"] is False,(width,voice_off)
+                        page.locator("#foxVoiceImportant").click()
+                        voice_on=page.evaluate("window.SayuriPresence.getSnapshot()")
+                        assert voice_on["voiceImportant"] is True,(width,voice_on)
                         for presence in ("Calm","Normal","Lively"):
                             assert page.locator("#foxPresence"+presence).is_visible(),(width,presence)
                         assert page.evaluate("typeof window.SayuriReactions.getSnapshot==='function'"),width
