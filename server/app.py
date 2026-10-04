@@ -1,16 +1,17 @@
 """Sayuri API: single-owner, server-side Cloud.ru, SQLite storage."""
 from __future__ import annotations
-import hashlib, hmac, json, os, secrets, sqlite3, time, uuid
+import hashlib, hmac, json, os, secrets, sqlite3, time, uuid, asyncio
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
+from server import runtime
 from server.drive import drive_root, drive_path, list_folder, search_files, DriveError, MAX_UPLOAD_BYTES
 from server.paths import prepare_project_root, prepare_data_dir, ensure_project_folders
 from dotenv import set_key
@@ -79,6 +80,35 @@ class FeedbackIn(BaseModel):
 
 @app.get("/")
 def index(): return FileResponse(WEB / "index.html")
+def _runtime_credentials():
+    return {"key":os.getenv("CLOUD_RU_API_KEY",""),
+            "base":os.getenv("CLOUD_RU_BASE_URL",""),
+            "model":os.getenv("CLOUD_RU_TEACHER_MODEL","")}
+
+def _runtime_snapshot():
+    params=_runtime_credentials()
+    return runtime.status_snapshot(
+        cloud_configured=bool(all(params.values())),model=params["model"])
+
+@app.get("/api/runtime/status")
+async def runtime_status(authorization: str | None=Header(None)):
+    auth(authorization)
+    await runtime.refresh_probes(**_runtime_credentials())
+    return _runtime_snapshot()
+
+@app.get("/api/runtime/events")
+async def runtime_events(request: Request,authorization: str | None=Header(None)):
+    auth(authorization)
+    async def stream():
+        # This connection carries status metadata only, never messages or documents.
+        while not await request.is_disconnected():
+            await runtime.refresh_probes(**_runtime_credentials())
+            yield "event: runtime_status\\ndata: "+json.dumps(
+                _runtime_snapshot(),ensure_ascii=False)+"\\n\\n"
+            await asyncio.sleep(20)
+    return StreamingResponse(stream(),media_type="text/event-stream",
+        headers={"Cache-Control":"no-store","X-Accel-Buffering":"no"})
+
 @app.get("/api/health")
 def health():
     return {"status":"ok","version":"0.1.0","cloud_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_MODEL")),"mentor_configured":bool(os.getenv("CLOUD_RU_API_KEY") and os.getenv("CLOUD_RU_BASE_URL") and os.getenv("CLOUD_RU_TEACHER_MODEL"))}
@@ -168,22 +198,31 @@ async def cloud_chat(messages, model_override=None):
     key=os.getenv("CLOUD_RU_API_KEY","")
     base=os.getenv("CLOUD_RU_BASE_URL","").rstrip("/")
     model=model_override or os.getenv("CLOUD_RU_MODEL","")
-    if not (key and base and model): raise HTTPException(503, "Настройте CLOUD_RU_API_KEY, CLOUD_RU_BASE_URL и CLOUD_RU_MODEL")
+    if not (key and base and model):
+        raise HTTPException(503,"Cloud.ru не настроен: требуется ключ, API URL и модель")
     url=urlparse(base)
     if url.scheme!="https" or not url.netloc or url.username or url.password:
         raise HTTPException(500,"Cloud.ru API URL должен быть HTTPS")
-    # CLOUD_RU_BASE_URL: full OpenAI-compatible API base, normally ending in /v1.
-    payload={"model":model,"messages":messages,"temperature":0.7}
+    start=runtime.cloud_request_begin(model)
+    status=None
     try:
         async with httpx.AsyncClient(timeout=90,follow_redirects=False) as client:
-            response=await client.post(base+"/chat/completions",json=payload,headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"})
+            response=await client.post(base+"/chat/completions",
+                json={"model":model,"messages":messages,"temperature":0.7},
+                headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"})
+        status=response.status_code
         response.raise_for_status()
-        answer=response.json()["choices"][0]["message"]["content"]
-        if not isinstance(answer,str): raise ValueError("Non-text model output")
+        result=response.json()
+        answer=result["choices"][0]["message"]["content"]
+        if not isinstance(answer,str):raise ValueError("Invalid text from provider")
+        runtime.cloud_request_end(start,http_status=status,usage=result.get("usage"))
         return answer
+    except httpx.TimeoutException as exc:
+        runtime.cloud_request_end(start,reason="timeout")
+        raise HTTPException(502,"Таймаут Cloud.ru") from exc
     except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError) as exc:
-        # Never return raw provider error bodies containing potentially sensitive data.
-        raise HTTPException(502,"Ошибка соединения с моделью Cloud.ru") from exc
+        runtime.cloud_request_end(start,http_status=status,reason="http" if status else "unreachable")
+        raise HTTPException(502,"Ошибка обращения к Cloud.ru") from exc
 
 @app.post("/api/chats/{cid}/send")
 async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, authorization: str | None = Header(None)):
@@ -210,7 +249,8 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
     req=[{"role":"system","content":context}]+[{"role":r["role"],"content":r["text"]} for r in reversed(hist)]
     req.append({"role":"user","content":body.text})
     # Cloud failure must not create a phantom assistant answer or duplicate user messages.
-    answer=await cloud_chat(req,model_override=os.getenv("CLOUD_RU_TEACHER_MODEL") if kind=="teacher" else None)
+    with runtime.operation("reasoning","Получение ответа модели"):
+        answer=await cloud_chat(req,model_override=os.getenv("CLOUD_RU_TEACHER_MODEL") if kind=="teacher" else None)
     t=stamp(); incoming=uuid.uuid4().hex; outgoing=uuid.uuid4().hex
     with db() as c:
         owned_chat(c,u,cid)
