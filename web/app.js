@@ -99,7 +99,8 @@ function instinctCard(item){
   const save=document.createElement('button');save.type='button';save.textContent='Сохранить';
   save.onclick=()=>saveInstinctSetting(item,card);
   const reset=document.createElement('button');reset.type='button';reset.textContent='Сбросить';reset.className='secondary';
-  reset.disabled=item.source==='base';
+  const localSource=$('#instinctScopeMode').value==='project'?'project':'owner';
+  reset.disabled=item.source!==localSource;
   reset.onclick=()=>resetInstinctSetting(item);
   controls.append(selectLabel,enabledLabel,save,reset);card.append(controls);
  }
