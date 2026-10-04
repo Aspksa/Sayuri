@@ -50,6 +50,10 @@ p{margin:8px 0 14px}
 #collapseSidebar:hover{color:var(--pink)}
 #sayuriSidebar .sidebar-scroller{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:32px 1px 12px;
  scrollbar-width:thin;scrollbar-color:#585166 transparent;overscroll-behavior:contain}
+.nav-pinned{position:sticky;top:-32px;z-index:3;background:var(--sidebar);padding:8px 0 14px;
+ border-bottom:1px solid #ffffff16;box-shadow:0 8px 12px #1d1e2b9e}
+.nav-pinned .sidebar-section-title{margin-top:3px}
+.diagnostics-body{padding-top:12px}
 .sidebar-section-title{font-size:10px;letter-spacing:.12em;color:var(--subtle);font-weight:700;margin:12px 12px 10px}
 .sidebar-separator{height:1px;margin:22px 8px 16px;background:#ffffff14}
 .diagnostic-stack{display:grid;gap:6px}
@@ -233,13 +237,14 @@ body.sidebar-collapsed .main-nav button .ui-icon,body.sidebar-collapsed #showUpd
  #cloud{display:none}
  .settings{padding:19px 16px 38px}
  .settings section{padding:18px 16px}
- .cabinet-hero{grid-template-columns:1fr;gap:5px;padding:22px 19px;text-align:center}
- .character-stage{height:166px}
- .character-halo{width:144px;height:144px}
- .character-portrait{width:136px;height:136px}
- .hero-content h2{font-size:24px}
- .hero-actions{justify-content:center}
- .account-quicknav{display:flex;gap:6px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:20px 0}
+ .cabinet-hero{grid-template-columns:1fr;gap:2px;padding:15px 17px;text-align:center}
+ .character-stage{height:126px}
+ .character-halo{width:110px;height:110px}
+ .character-portrait{width:108px;height:108px}
+ .hero-content h2{font-size:21px;margin:9px 0}
+ .hero-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:12px 0}
+ .hero-actions button{font-size:11px;padding:8px 5px;min-height:40px}
+ .account-quicknav{display:flex;gap:6px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:15px 0}
  .account-quicknav button{white-space:nowrap;flex:none}
  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .messages{padding:18px 13px}
@@ -249,6 +254,7 @@ body.sidebar-collapsed .main-nav button .ui-icon,body.sidebar-collapsed #showUpd
  .compose button{min-width:48px;height:48px}
  .drive-top{display:block}.drive-chip{display:inline-block;margin-top:8px}
  .drive-toolbar input{max-width:none;margin:0;width:100%}
+ .hero-content>.hint{font-size:10px;line-height:1.45;margin-top:5px}
  .advanced-settings>summary{display:block}
  .advanced-settings>summary span{display:block;margin:5px 0 0}
  body.sidebar-collapsed #sayuriSidebar .profile-content,
