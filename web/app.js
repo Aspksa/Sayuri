@@ -331,6 +331,23 @@ async function loadDevelopment(){
  }catch(e){history.textContent='Не удалось загрузить историю развития: '+e.message}
 }
 function driveRelativeParent(path){return path.split('/').slice(0,-1).join('/')}
+const folderIcons={folder:'📁',book:'📚',project:'🗂️',archive:'🗄️',research:'🔬',personal:'🏠',star:'★'};
+function normalizeFolderMeta(meta,path=''){
+ const value=meta&&typeof meta==='object'?meta:{};
+ return {
+  path:value.path||path,icon:folderIcons[value.icon]?value.icon:'folder',
+  color:['violet','rose','blue','cyan','green','amber','slate'].includes(value.color)?value.color:'violet',
+  description:typeof value.description==='string'?value.description:''
+ };
+}
+function folderIcon(meta){return folderIcons[normalizeFolderMeta(meta).icon]}
+function applyFolderIdentity(node,meta){
+ const value=normalizeFolderMeta(meta);
+ node.dataset.folderColor=value.color;
+ node.style.setProperty('--folder-accent','var(--folder-'+value.color+')');
+ return value;
+}
+
 function loadDrivePins(){
  try{return JSON.parse(localStorage.getItem('sayuri_document_pins')||'[]').filter(x=>x&&typeof x.path==='string')}
  catch{return []}
@@ -405,10 +422,15 @@ function driveCard(name,kind,primary,rename,remove,context=null){
   card.dataset.sayuriEntityId=String(context.id);
   card.dataset.sayuriModule=context.module||'files';
  }
- const icon=document.createElement('div');icon.className='drive-file-icon';icon.textContent=kind==='folder'?'📁':kind==='shortcut'?'✦':'📄';
+ const identity=kind==='folder'?normalizeFolderMeta(context?.folder_meta,String(context?.id||'')):null;
+ if(identity)applyFolderIdentity(card,identity);
+ const icon=document.createElement('div');icon.className='drive-file-icon';
+ icon.textContent=kind==='folder'?folderIcon(identity):kind==='shortcut'?'✦':'📄';
  const title=document.createElement('div');title.className='drive-file-name';title.textContent=name;
  const meta=document.createElement('div');meta.className='drive-file-meta';
  meta.textContent=kind==='folder'?'Папка':kind==='shortcut'?'Быстрый доступ':'Файл';
+ const description=document.createElement('div');description.className='drive-file-description';
+ if(identity?.description)description.textContent=identity.description;else description.hidden=true;
  const actions=document.createElement('div');actions.className='drive-file-actions';
  const open=document.createElement('button');open.textContent=kind==='folder'||kind==='shortcut'?'Открыть':'Скачать';open.onclick=primary;
  actions.append(open);
@@ -424,7 +446,9 @@ function driveCard(name,kind,primary,rename,remove,context=null){
    const del=document.createElement('button');del.textContent='×';del.title='Удалить';del.onclick=remove;actions.append(del);
   }
  }
- card.append(icon,title,meta,actions);
+ card.append(icon,title,meta);
+ if(kind==='folder')card.append(description);
+ card.append(actions);
  if(kind==='folder'&&managed)setupDriveDropTarget(card,String(context.id));
  return card;
 }
@@ -444,6 +468,8 @@ function syncDocumentsContextMenu(){
  const pin=$('[data-doc-action="pin"]');
  pin.querySelector('span').textContent=pinned?'Открепить':'Закрепить';
  pin.firstChild.textContent=pinned?'★ ':'☆ ';
+ const customize=$('[data-doc-action="customize"]');
+ if(customize)customize.hidden=!driveMenuItem.is_dir;
 }
 function openDocumentsContextMenu(card,x,y){
  const item=driveItemFromCard(card);if(!item)return;
@@ -510,6 +536,54 @@ async function openRenameItemDialog(item){
  showDocumentsDialog('#renameItemDialog');
  requestAnimationFrame(()=>{$('#renameItemName').focus();$('#renameItemName').select()});
 }
+let folderIdentityItem=null,folderIdentityIcon='folder',folderIdentityColor='violet';
+function syncFolderIdentityChoices(){
+ document.querySelectorAll('[data-folder-icon]').forEach(button=>
+  button.setAttribute('aria-pressed',String(button.dataset.folderIcon===folderIdentityIcon)));
+ document.querySelectorAll('[data-folder-color]').forEach(button=>
+  button.setAttribute('aria-pressed',String(button.dataset.folderColor===folderIdentityColor)));
+}
+async function openFolderIdentityDialog(item){
+ if(!item?.is_dir)return;
+ folderIdentityItem=item;
+ $('#folderIdentityTitle').textContent=item.name;
+ $('#folderIdentityPath').textContent=folderDisplayPath(item.path);
+ $('#folderIdentityError').textContent='';
+ try{
+  const meta=normalizeFolderMeta(await api('/drive/folder-meta?path='+encodeURIComponent(item.path)),item.path);
+  folderIdentityIcon=meta.icon;folderIdentityColor=meta.color;
+  $('#folderIdentityDescription').value=meta.description;
+  $('#folderIdentityCounter').textContent=String(meta.description.length);
+  syncFolderIdentityChoices();
+  showDocumentsDialog('#folderIdentityDialog');
+ }catch(error){$('#documentsActionStatus').textContent='Не удалось открыть оформление папки: '+error.message}
+}
+document.querySelectorAll('[data-folder-icon]').forEach(button=>button.onclick=()=>{
+ folderIdentityIcon=button.dataset.folderIcon;syncFolderIdentityChoices();
+});
+document.querySelectorAll('[data-folder-color]').forEach(button=>button.onclick=()=>{
+ folderIdentityColor=button.dataset.folderColor;syncFolderIdentityChoices();
+});
+$('#folderIdentityDescription').oninput=event=>{
+ $('#folderIdentityCounter').textContent=String(event.target.value.length);
+};
+$('#folderIdentityClose').onclick=()=>closeDocumentsDialog('#folderIdentityDialog');
+$('#folderIdentityCancel').onclick=()=>closeDocumentsDialog('#folderIdentityDialog');
+$('#folderIdentityForm').onsubmit=async event=>{
+ event.preventDefault();if(!folderIdentityItem)return;
+ const submit=$('#folderIdentitySubmit'),error=$('#folderIdentityError');submit.disabled=true;error.textContent='';
+ try{
+  await api('/drive/folder-meta','PUT',{
+   path:folderIdentityItem.path,icon:folderIdentityIcon,color:folderIdentityColor,
+   description:$('#folderIdentityDescription').value
+  });
+  $('#documentsActionStatus').textContent='Оформление папки «'+folderIdentityItem.name+'» сохранено.';
+  closeDocumentsDialog('#folderIdentityDialog');
+  await loadDrive(driveCurrent);
+ }catch(e){error.textContent=e.message}
+ finally{submit.disabled=false}
+};
+
 async function openMoveItemDialog(item){
  driveMenuItem=item;
  $('#moveItemCurrent').textContent=item.name;
@@ -538,6 +612,7 @@ document.querySelectorAll('#documentsContextMenu [data-doc-action]').forEach(but
   if(action==='open'){item.is_dir?loadDrive(item.path):driveDownload(item.path,item.name);return}
   if(action==='pin'){toggleDrivePin(item);return}
   if(action==='rename'){openRenameItemDialog(item);return}
+  if(action==='customize'){openFolderIdentityDialog(item);return}
   if(action==='move'){openMoveItemDialog(item);return}
   if(action==='delete'){await deleteDriveItem(item);return}
  }catch(error){$('#documentsActionStatus').textContent=error.message}
@@ -573,14 +648,15 @@ window.addEventListener('resize',closeDocumentsContextMenu);
 function folderDisplayPath(path){
  return path?'Мои файлы / '+path.split('/').join(' / '):'Корень хранилища';
 }
-function renderFolderHierarchy(steps,directItems,searching=false){
+function renderFolderHierarchy(steps,directItems,searching=false,currentMeta=null){
  const tree=$('#documentsFolderTree');if(!tree)return;
  tree.replaceChildren();renderDrivePins();
- const addNode=(title,path,{active=false,child=false,depth=0}={})=>{
+ const addNode=(title,path,{active=false,child=false,depth=0,meta=null}={})=>{
   const button=document.createElement('button');
   button.type='button';button.className='documents-folder-node'+(active?' active':'')+(child?' child':'');
+  if(meta)applyFolderIdentity(button,meta);
   button.style.setProperty('--folder-indent',(8+Math.min(depth,6)*8)+'px');
-  const icon=document.createElement('span');icon.textContent=active?'▾':'▸';
+  const icon=document.createElement('span');icon.textContent=meta?folderIcon(meta):(active?'▾':'▸');
   const text=document.createElement('span');text.textContent=title;
   button.append(icon,text);
   button.title=folderDisplayPath(path);
@@ -589,7 +665,10 @@ function renderFolderHierarchy(steps,directItems,searching=false){
   tree.append(button);
  };
  for(const [index,step] of steps.entries())
-  addNode(step.title,step.path,{active:index===steps.length-1,depth:index});
+  addNode(step.title,step.path,{
+   active:index===steps.length-1,depth:index,
+   meta:index===steps.length-1?currentMeta:null
+  });
  if(!searching){
   const folders=directItems.filter(item=>item.is_dir)
     .sort((a,b)=>a.name.localeCompare(b.name,'ru',{sensitivity:'base'}));
@@ -597,7 +676,7 @@ function renderFolderHierarchy(steps,directItems,searching=false){
     const label=document.createElement('div');label.className='documents-folder-children-label';
     label.textContent='Внутри этой папки';tree.append(label);
     for(const folder of folders)
-      addNode(folder.name,folder.path,{child:true,depth:steps.length});
+      addNode(folder.name,folder.path,{child:true,depth:steps.length,meta:folder.folder_meta});
   }
  }
 }
@@ -630,7 +709,18 @@ async function loadDrive(relative=driveCurrent){
   const res=await api('/drive/list?path='+encodeURIComponent(relative));
   const search=$('#driveSearch').value.trim();
   const items=search?(await api('/drive/search?q='+encodeURIComponent(search))).items:res.items;
-  renderFolderHierarchy(steps,res.items,Boolean(search));
+  renderFolderHierarchy(steps,res.items,Boolean(search),res.current_meta);
+  const currentMeta=normalizeFolderMeta(res.current_meta,relative);
+  const currentCard=$('#documentsCurrentFolderCard');
+  applyFolderIdentity(currentCard,relative?currentMeta:{color:'slate',icon:'folder'});
+  $('#documentsCurrentFolderIcon').textContent=relative?folderIcon(currentMeta):'📁';
+  const currentDescription=$('#documentsCurrentDescription');
+  currentDescription.textContent=currentMeta.description;
+  currentDescription.hidden=!relative||!currentMeta.description;
+  const directFolders=res.items.filter(item=>item.is_dir).length;
+  const directFiles=res.items.filter(item=>!item.is_dir).length;
+  $('#documentsFolderCount').textContent=String(directFolders);
+  $('#documentsFileCount').textContent=String(directFiles);
   info.textContent=search?'Результаты поиска · '+items.length:'Расположение: '+res.root+' · '+items.length+' объектов';
   const count=$('#documentsObjectCount');
   if(count)count.textContent=items.length+' '+(items.length===1?'объект':'объектов');
@@ -657,7 +747,7 @@ async function loadDrive(relative=driveCurrent){
    const rename=()=>openRenameItemDialog({path:item.path,name:item.name,is_dir:item.is_dir});
    const remove=()=>deleteDriveItem({path:item.path,name:item.name,is_dir:item.is_dir});
    output.append(driveCard(item.name,item.is_dir?'folder':'file',open,rename,remove,{
-    type:item.is_dir?'project':'file',id:item.path,module:'files'
+    type:item.is_dir?'project':'file',id:item.path,module:'files',folder_meta:item.folder_meta
    }));
   }
   if(!output.childElementCount)output.textContent='Папка пуста. Создайте папку или добавьте файлы.';
