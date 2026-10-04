@@ -616,7 +616,6 @@ async function loadDevelopment(){
   experience.replaceChildren();
   for(const [label,value] of [['Сообщения',n.messages],['Диалоги',n.chats],['Знания',n.memories],['Документы',n.documents],['Предложения на проверке',n.memory_candidates]])experience.append(metric(label,value));
   $('#experienceJournal').textContent='Опыт собирается из фактической истории сообщений, исправлений и подтверждённой памяти. Автоматическая оценка способностей пока не проводилась.';
-  loadKnowledge31();
   history.replaceChildren();
   if(!data.history.length)history.textContent='События развития пока не записаны.';
   for(const event of data.history){
