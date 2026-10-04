@@ -250,7 +250,7 @@ const metric=(label,value)=>{
 async function loadDevelopment(){
  const skill=$('#skillSummary'),experience=$('#experienceSummary'),history=$('#developmentHistory');
  try{
-  const [data,persona,memory]=await Promise.all([api('/development/summary'),api('/persona'),api('/memory')]);
+  const [data,persona,memory,documents]=await Promise.all([api('/development/summary'),api('/persona'),api('/memory'),api('/documents')]);
   const n=data.counts;
   skill.replaceChildren();
   for(const [label,value] of [['Правила характера',persona.rules],['Контрольные сценарии (описаны)',persona.scenarios],['Оценки реальных ответов',n.feedback],['Проверенные навыки','Ещё не измерены']])skill.append(metric(label,value));
@@ -264,6 +264,16 @@ async function loadDevelopment(){
    const chapters=document.createElement('div');chapters.className='journal-entry';
    chapters.textContent='Библиотека персонажа: '+persona.dialogues+' учебных диалогов, '+persona.phrases+' реплик, '+persona.chapters+' глав легенды, '+persona.rituals+' ритуалов.';
    if(!q||chapters.textContent.toLowerCase().includes(q))library.append(chapters);
+   const extra=[
+     ...(persona.lore_titles||[]).map((title,i)=>({label:'Глава '+(i+1)+': '+title,source:'Легенда · профиль 2.0'})),
+     ...(persona.ritual_titles||[]).map((title,i)=>({label:'Ритуал '+(i+1)+': '+title,source:'Ритуалы · профиль 2.0'})),
+     ...documents.map(d=>({label:d.name,source:'Загруженный документ · ещё не индексирован'}))
+   ];
+   for(const item of extra.filter(x=>x.label.toLowerCase().includes(q))){
+     const entry=document.createElement('div');entry.className='journal-entry';entry.textContent=item.label;
+     const subtitle=document.createElement('small');subtitle.textContent=item.source;
+     entry.append(subtitle);library.append(entry);
+   }
    const relevant=memory.filter(m=>m.text.toLowerCase().includes(q));
    for(const m of relevant){
     const entry=document.createElement('div');entry.className='journal-entry';
