@@ -10,7 +10,9 @@ import os
 import struct
 import io
 import zipfile
-from pathlib import Path
+import re
+import shutil
+from pathlib import Path, PurePosixPath
 
 from fastapi import File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -19,6 +21,12 @@ from pydantic import BaseModel, Field
 VALID_KINDS = frozenset({"portrait", "full"})
 MAX_IMAGE_BYTES = 9 * 1024 * 1024
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+ANIMATION_STATES = ("idle", "walk", "think", "read", "work", "happy", "attention", "sleep")
+ANIMATION_FPS = {"idle": 4, "walk": 10, "think": 6, "read": 6, "work": 8,
+                 "happy": 10, "attention": 10, "sleep": 3}
+MAX_ANIMATION_PACK_BYTES = 40 * 1024 * 1024
+MAX_ANIMATION_FRAMES_PER_STATE = 24
+ANIMATION_FRAME_RE = re.compile(r"^[0-9]{3}\.png$")
 
 
 class CompanionSettings(BaseModel):
@@ -43,6 +51,23 @@ def image_path(data_root: Path, owner: str, kind: str) -> Path:
         raise HTTPException(404, "Вид изображения не поддерживается")
     digest = hashlib.sha256(owner.encode("utf-8")).hexdigest()[:24]
     return (data_root / "appearance" / (digest + "-" + kind + ".png")).resolve()
+
+
+def animation_root(data_root: Path, owner: str) -> Path:
+    digest = hashlib.sha256(owner.encode("utf-8")).hexdigest()[:24]
+    return (data_root / "appearance" / (digest + "-animation")).resolve()
+
+
+def animation_metadata(data_root: Path, owner: str) -> dict:
+    root = animation_root(data_root, owner)
+    states = {}
+    if root.is_dir():
+        for state in ANIMATION_STATES:
+            folder = root / state
+            frames = sorted(folder.glob("*.png")) if folder.is_dir() else []
+            if frames:
+                states[state] = {"frames": len(frames), "fps": ANIMATION_FPS[state]}
+    return {"installed": bool(states), "states": states}
 
 
 def check_png(content: bytes) -> tuple[int, int]:
@@ -172,5 +197,85 @@ def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
         path = image_path(data_root, owner, kind)
         if not path.is_file():
             raise HTTPException(404, "Изображение ещё не загружено")
+        return FileResponse(path, media_type="image/png",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+    @app.get("/api/companion/animation")
+    def read_animation_pack(authorization: str | None = Header(None)):
+        owner = auth(authorization)
+        return animation_metadata(data_root, owner)
+
+    @app.post("/api/companion/animation-pack")
+    async def upload_animation_pack(
+        pack: UploadFile = File(...), authorization: str | None = Header(None)
+    ):
+        owner = auth(authorization)
+        content = await pack.read(MAX_ANIMATION_PACK_BYTES + 1)
+        if len(content) > MAX_ANIMATION_PACK_BYTES:
+            raise HTTPException(413, "Пакет анимаций больше 40 МБ")
+        frames: dict[str, list[tuple[str, bytes]]] = {}
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                for item in archive.infolist():
+                    if item.is_dir():
+                        continue
+                    raw = item.filename.replace("\\", "/")
+                    if raw == "README.txt":
+                        continue
+                    path = PurePosixPath(raw)
+                    if path.is_absolute() or ".." in path.parts or len(path.parts) != 2:
+                        raise HTTPException(400, "Недопустимый путь в пакете анимаций")
+                    state, filename = path.parts
+                    if state not in ANIMATION_STATES or not ANIMATION_FRAME_RE.fullmatch(filename):
+                        raise HTTPException(
+                            400, "Кадры должны иметь вид idle/001.png, walk/001.png и т. д."
+                        )
+                    bucket = frames.setdefault(state, [])
+                    if len(bucket) >= MAX_ANIMATION_FRAMES_PER_STATE:
+                        raise HTTPException(400, "Не больше 24 кадров на одно состояние")
+                    if item.file_size > MAX_IMAGE_BYTES:
+                        raise HTTPException(413, "Один кадр анимации превышает 9 МБ")
+                    payload = archive.read(item)
+                    check_png(payload)
+                    bucket.append((filename, payload))
+        except (zipfile.BadZipFile, KeyError) as exc:
+            raise HTTPException(400, "Некорректный ZIP-пакет анимаций") from exc
+        if not frames:
+            raise HTTPException(400, "В пакете нет кадров анимации")
+
+        target = animation_root(data_root, owner)
+        temporary = target.with_name(target.name + ".tmp")
+        backup = target.with_name(target.name + ".bak")
+        shutil.rmtree(temporary, ignore_errors=True)
+        shutil.rmtree(backup, ignore_errors=True)
+        temporary.mkdir(parents=True, exist_ok=True)
+        try:
+            for state, items in frames.items():
+                folder = temporary / state
+                folder.mkdir(parents=True, exist_ok=True)
+                for filename, payload in sorted(items):
+                    (folder / filename).write_bytes(payload)
+            if target.exists():
+                os.replace(target, backup)
+            os.replace(temporary, target)
+            shutil.rmtree(backup, ignore_errors=True)
+        except Exception:
+            shutil.rmtree(temporary, ignore_errors=True)
+            if backup.exists() and not target.exists():
+                os.replace(backup, target)
+            raise
+        return animation_metadata(data_root, owner)
+
+    @app.get("/api/companion/animation/{state}/{frame}")
+    def get_animation_frame(
+        state: str, frame: int, authorization: str | None = Header(None)
+    ):
+        owner = auth(authorization)
+        if state not in ANIMATION_STATES or frame < 1 or frame > MAX_ANIMATION_FRAMES_PER_STATE:
+            raise HTTPException(404, "Кадр анимации не найден")
+        path = animation_root(data_root, owner) / state / f"{frame:03d}.png"
+        if not path.is_file():
+            raise HTTPException(404, "Кадр анимации не найден")
         return FileResponse(path, media_type="image/png",
             headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
