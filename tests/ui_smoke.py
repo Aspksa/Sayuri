@@ -277,6 +277,7 @@ def run():
                         # Folder Identity: icon, accent and description persist in the local profile.
                         folder_card.locator("button[aria-label^='Действия:']").click()
                         page.locator("[data-doc-action='customize']").click()
+                        page.locator("#folderIdentityDialog").wait_for(state="visible")
                         assert page.locator("#folderIdentityDialog").is_visible(),width
                         page.locator("[data-folder-icon='research']").click()
                         page.locator("[data-folder-color='cyan']").click()
@@ -328,6 +329,8 @@ def run():
                         renamed_card=page.locator("#driveFiles .drive-file").filter(has_text=renamed).first
                         renamed_card.locator("button[aria-label^='Действия:']").click()
                         page.locator("[data-doc-action='move']").click()
+                        page.locator("#moveItemDialog").wait_for(state="visible")
+                        page.wait_for_function("name => Array.from(document.querySelectorAll('#moveItemDestination option')).some(node => node.textContent.includes(name))",arg=target_name)
                         assert page.locator("#moveItemDialog").is_visible(),width
                         assert page.locator("#moveItemDestination option").filter(has_text=target_name).count()==1,width
                         page.locator("#moveItemCancel").click()
