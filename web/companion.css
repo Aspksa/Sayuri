@@ -180,3 +180,18 @@ body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
  .fox-settings-action-grid,.fox-mode-grid{grid-template-columns:1fr}
  .fox-settings-section{padding:13px}
 }
+
+
+/* SAYURI 4.2 — owner-controlled autonomous behavior. */
+.fox-behavior-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+.fox-behavior-grid button{display:grid!important;gap:5px;align-content:start;min-height:78px!important;
+ margin:0!important;padding:12px 13px!important;text-align:left!important;border:1px solid #5f506a!important;
+ background:#302b3f!important}
+.fox-behavior-grid button strong{font-size:13px;color:#f8e8f4}
+.fox-behavior-grid button span{font-size:11px;line-height:1.45;color:#c8bbce}
+.fox-behavior-grid button[aria-pressed="true"]{border-color:#efb5d4!important;
+ background:linear-gradient(120deg,#563d59,#383047)!important;box-shadow:0 0 0 1px #efb5d426 inset}
+.fox-shell.fox-autonomous-move{transition:left .78s cubic-bezier(.22,.7,.24,1),top .78s cubic-bezier(.22,.7,.24,1)}
+body.fox-quiet .fox-shell.fox-autonomous-move{transition:none!important}
+@media(prefers-reduced-motion:reduce){.fox-shell.fox-autonomous-move{transition:none!important}}
+@media(max-width:767px){.fox-behavior-grid{grid-template-columns:1fr}.fox-behavior-grid button{min-height:68px!important}}
