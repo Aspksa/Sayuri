@@ -84,3 +84,24 @@ body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
 .fox-install-feature .fox-upload-grid{margin-top:15px}
 .fox-install-feature #foxAppearanceStatus{padding:7px 0 0}
 @media(max-width:767px){.fox-install-feature{padding:15px;margin:12px 0 16px}.fox-pack-label{padding:12px}}
+
+/* Interface 3.2: the real installer lives in section 01 and the link is near the portrait. */
+.fox-entry-bar{display:flex;gap:16px;justify-content:space-between;align-items:center;
+ margin:16px 0 6px;padding:14px 18px;background:#30253d;
+ border:1px solid #986b97;border-radius:14px}
+.fox-entry-bar>div{display:grid;gap:2px;min-width:0}
+.fox-entry-bar strong{color:#ffe1f1;font-size:15px}
+.fox-entry-bar span{font-size:12px;color:#d7c8df}
+#foxJumpInstall{flex:0 0 auto;min-height:44px;padding:10px 18px;
+ font-weight:700;color:#281e2c;background:#f1acd2;border-radius:11px}
+#foxJumpInstall:hover{background:#ffc4e2}
+.ui-build{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.025em;
+ margin-left:10px;color:#eed4ee;border:1px solid #8d6c8e;border-radius:100px;padding:3px 8px}
+#characterBlock{scroll-margin-top:16px}
+#foxInstall{scroll-margin-top:20px}
+#characterBlock .fox-install-feature{margin-top:18px}
+@media(max-width:767px){
+ .fox-entry-bar{gap:10px;flex-direction:column;align-items:stretch;padding:13px}
+ #foxJumpInstall{width:100%}
+ .ui-build{display:block;width:fit-content;margin:5px 0 0}
+}
