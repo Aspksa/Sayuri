@@ -971,3 +971,7 @@ body.sidebar-collapsed #sayuriSidebar #showBeyond .beyond-menu-sigil{display:inl
  .instinct32-controls button{width:100%}
  .instinct32-test>button{width:100%;justify-self:stretch}
 }
+
+
+/* SAYURI 4.10.0 — hidden state invariant. */
+[hidden]{display:none!important}
