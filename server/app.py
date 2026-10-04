@@ -296,19 +296,6 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         if override: context+="\nАктивный режим: "+override
         context+="\nВыбранная степень личной близости речи: "+pref["intimacy"]+". Это только стиль, не разрешение менять факты или правила."
     instinct_result=None
-    if kind!="teacher":
-        with db() as c:
-            pending_conflicts=0
-            if memories:
-                conflicts=detect_conflicts(c,user_id=u,memories=memories,now=stamp(),
-                                           project_id=project_id,limit=100)
-                pending_conflicts=sum(1 for item in conflicts if item["status"]=="pending")
-            instinct_result=evaluate_instincts(
-                c,user_id=u,body=InstinctEvaluate(
-                    text=body.text,project_id=project_id,pending_conflicts=pending_conflicts,
-                    operation="conversation"),now=stamp())
-        instinct_context=instinct_context_text(instinct_result)
-        if instinct_context:context+="\n"+instinct_context
     if kind=="teacher":
         context=("Ты DeepSeek — отдельный ИИ-наставник. В этом диалоге пользователь общается с тобой напрямую. "
                  "Sayuri наблюдает за диалогом через локальную историю, но не участвует в ответах. "
@@ -319,6 +306,13 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
             selected_knowledge=knowledge_context(
                 c,user_id=u,memories=memories,query=body.text,now=stamp(),
                 project_id=project_id,limit=14)
+            pending_conflicts=1 if "Кандидаты противоречий" in selected_knowledge else 0
+            instinct_result=evaluate_instincts(
+                c,user_id=u,body=InstinctEvaluate(
+                    text=body.text,project_id=project_id,pending_conflicts=pending_conflicts,
+                    operation="conversation"),now=stamp())
+        instinct_context=instinct_context_text(instinct_result)
+        if instinct_context:context+="\n"+instinct_context
         if selected_knowledge:
             context+="\n"+selected_knowledge
         else:
