@@ -27,6 +27,12 @@ _NET_PROBING=False
 _CLOUD_PROBING=False
 _FINISHED_AT=0.0
 _FAILED_AT=0.0
+_BACKEND_LATENCY_MS=None
+
+def record_backend_latency(elapsed_ms:int):
+    global _BACKEND_LATENCY_MS
+    with _LOCK:
+        _BACKEND_LATENCY_MS=max(0,elapsed_ms)
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
@@ -120,6 +126,7 @@ def status_snapshot(*,cloud_configured:bool,model:str|None=None):
             description="Ожидает запроса"
         cloud=dict(_CLOUD)
         network=dict(_NETWORK)
+        server_latency=_BACKEND_LATENCY_MS
         events=list(_EVENTS)[:8]
     if not cloud_configured:
         cloud.update(state="unknown",last_error="Модель или API-ключ не настроены",
@@ -131,6 +138,8 @@ def status_snapshot(*,cloud_configured:bool,model:str|None=None):
                       "description":description,"progress_percent":None},
             "network":{"state":network["state"],"backend":"online",
                        "latency_ms":network["latency_ms"],
+                       "server_latency_ms":server_latency,
+                       "probe_target":"github.com",
                        "last_success_at":network["last_success_at"],
                        "failure_reason":network["failure_reason"]},
             "cloud_ru":cloud,
