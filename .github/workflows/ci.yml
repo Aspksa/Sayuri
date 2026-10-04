@@ -13,4 +13,15 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt pytest
       - run: python -m compileall -q run.py server
+      - run: node --check web/app.js && node --check web/sidebar.js
       - run: python -m pytest -q
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt playwright
+      - run: python -m playwright install --with-deps chromium
+      - run: python tests/ui_smoke.py
