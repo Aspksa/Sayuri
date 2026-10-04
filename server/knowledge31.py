@@ -169,8 +169,6 @@ def knowledge_memories(c,*,user_id: str,now: int,project_id: str | None=None,lim
     if project_id:
         clauses.append("(scope!='project' OR project_id=?)")
         params.append(project_id)
-    else:
-        clauses.append("scope!='project'")
     params.append(max(1,min(limit,1000)))
     rows=c.execute(
         "SELECT * FROM memories WHERE "+" AND ".join(clauses)+
