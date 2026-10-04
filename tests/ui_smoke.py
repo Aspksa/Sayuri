@@ -48,10 +48,17 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.8.0",width
-                        assert page.locator("#accountProjectVersion").inner_text()=="4.8.0",width
-                        assert page.locator("#accountCoreVersion").inner_text()=="3.0.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.9.0",width
+                        assert page.locator("#accountProjectVersion").inner_text()=="4.9.0",width
+                        assert page.locator("#accountCoreVersion").inner_text()=="3.1.0",width
                         assert page.locator("#accountMemoryVersion").inner_text()=="3.0.0",width
+                        assert page.locator("#accountKnowledgeVersion").inner_text()=="3.1.0",width
+                        assert page.locator("#libraryBlock").is_visible(),width
+                        assert page.locator("#knowledgeSummary").is_visible(),width
+                        assert page.locator("#knowledgeSearch").is_visible(),width
+                        assert page.locator("#knowledgeSources").is_visible(),width
+                        assert page.locator("#knowledgeConflicts").is_visible(),width
+                        assert page.locator("#knowledgeLinkForm").is_visible(),width
                         assert page.locator("#memoryBlock").is_visible(),width
                         assert page.locator("#memorySummary").is_visible(),width
                         assert page.locator("#memoryScope").is_visible(),width
@@ -193,7 +200,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.8.0')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.9.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
@@ -214,12 +221,18 @@ def run():
                           .some(node => node.textContent === text)""",arg=memory_text)
                         memory_card=page.locator("#memories .memory3-card").filter(has_text=memory_text).first
                         assert memory_card.get_attribute("data-scope")=="working",(width,memory_text)
+                        # Knowledge 3.1 indexes the confirmed memory and finds it locally.
+                        page.locator("#knowledgeSearch").fill(memory_text)
+                        page.locator("#knowledgeSearchButton").click()
+                        page.wait_for_function("""text => Array.from(document.querySelectorAll('#knowledgeLibrary .knowledge31-result p'))
+                          .some(node => node.textContent === text)""",arg=memory_text)
+                        assert "Knowledge 3.1" in page.locator("#knowledgeSearchStatus").inner_text(),width
+                        assert int(page.locator("#knowledgeSourceCount").inner_text())>=1,width
                         page.once("dialog",lambda dialog:dialog.accept())
                         memory_card.locator("button").filter(has_text="Удалить").click()
                         page.wait_for_function("""text => !Array.from(document.querySelectorAll('#memories .memory3-card-text'))
                           .some(node => node.textContent === text)""",arg=memory_text)
                         page.locator("#memoryScope").select_option("personal")
-                        page.evaluate("document.getElementById('showFiles').click()")
                         page.evaluate("document.getElementById('showFiles').click()")
                         page.wait_for_timeout(120)
                         assert page.locator("#filesView").is_visible(),width
