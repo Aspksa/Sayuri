@@ -11,10 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
+from server.paths import cloud_root, data_root, ensure_project_folders
 from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = Path(os.getenv("SAYURI_DATA_DIR", str(ROOT / "data"))).resolve()
+DATA = data_root(ROOT)
 DATA.mkdir(parents=True, exist_ok=True)
 DB = DATA / "sayuri.sqlite3"
 WEB = ROOT / "web"
@@ -283,12 +284,14 @@ def persona(authorization: str | None=Header(None)):
 
 
 # Owner-granted read-only project explorer.
-PROJECT_ROOT = Path(os.getenv("SAYURI_PROJECTS_DIR", "")).expanduser().resolve() if os.getenv("SAYURI_PROJECTS_DIR") else None
+PROJECT_ROOT = cloud_root()
 PROJECT_SCOPES = {"work":"Рабочие проекты","home":"Домашние проекты"}
 def project_base(category: str):
     if category not in PROJECT_SCOPES: raise HTTPException(404,"Неизвестный проект")
-    if PROJECT_ROOT is None: raise HTTPException(503,"Настройте SAYURI_PROJECTS_DIR в .env")
-    base=(PROJECT_ROOT/PROJECT_SCOPES[category]).resolve()
+    ensure_project_folders(PROJECT_ROOT)
+    root_folder=PROJECT_ROOT/PROJECT_SCOPES[category]
+    if root_folder.is_symlink():raise HTTPException(403,"Ссылки на каталоги запрещены")
+    base=root_folder.resolve()
     if not base.is_relative_to(PROJECT_ROOT) or not base.is_dir():
         raise HTTPException(404,"Папка не существует")
     return base
@@ -301,8 +304,9 @@ def project_target(category: str, relative: str):
 @app.get("/api/projects")
 def projects(authorization: str | None = Header(None)):
     auth(authorization)
-    return {"root_configured":PROJECT_ROOT is not None,
-            "categories":[{"id":key,"name":value,"available":PROJECT_ROOT is not None and (PROJECT_ROOT/value).is_dir()}
+    ensure_project_folders(PROJECT_ROOT)
+    return {"root_configured":True,"root":str(PROJECT_ROOT),"data_root":str(DATA),
+            "categories":[{"id":key,"name":value,"available":(PROJECT_ROOT/value).is_dir() and not (PROJECT_ROOT/value).is_symlink()}
                           for key,value in PROJECT_SCOPES.items()]}
 @app.get("/api/projects/{category}/list")
 def project_list(category: str, path: str = "", authorization: str | None = Header(None)):
