@@ -48,7 +48,7 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
-                        assert page.locator("#accountUiVersion").inner_text()=="4.3.0",width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.4.0",width
                         if width in (390,1440):
                             folder=ROOT/"ui-previews"
                             folder.mkdir(exist_ok=True)
@@ -64,6 +64,8 @@ def run():
                         assert page.locator("#foxFullUpload").count()==1,width
                         assert page.locator("#foxPickPack").is_visible(),width
                         assert page.locator("#foxPickPack").inner_text().startswith("↑ Выбрать ZIP"),width
+                        assert page.locator("#foxPickAnimationPack").is_visible(),width
+                        assert page.locator("#foxAnimationSummary").is_visible(),width
                         assert page.locator("#foxScale").is_visible(),width
                         for behavior in ("Stationary","Wander","Follow","Event"):
                             assert page.locator("#foxBehavior"+behavior).is_visible(),(width,behavior)
@@ -72,6 +74,8 @@ def run():
                         page.locator("#foxBehaviorStationary").click()
                         assert page.locator("#foxBehaviorStationary").get_attribute("aria-pressed")=="true",width
                         assert page.locator("#foxMotionState").is_visible(),width
+                        assert page.locator("#foxAvatarFrameA").count()==1,width
+                        assert page.locator("#foxAvatarFrameB").count()==1,width
                         page.evaluate("window.dispatchEvent(new CustomEvent('sayuri:runtime',{detail:{state:'reasoning'}}))")
                         assert page.locator("#foxShell").get_attribute("data-motion-state")=="thinking",width
                         assert page.locator("#foxMotionState").inner_text()=="Размышляет",width
@@ -108,7 +112,7 @@ def run():
                         assert page.locator("#accountView").is_visible(),width
                         page.locator("#accountOpenUpdates").click()
                         assert page.locator("#updatesView").is_visible(),width
-                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.3.0')")
+                        page.wait_for_function("document.querySelector('#runningVersion').textContent.includes('4.4.0')")
                         assert "Sayuri" in page.locator("#runningFolder").inner_text(),width
                         assert page.locator("#updatesBackCabinet").is_visible(),width
                         if width in (390,1440):
