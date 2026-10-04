@@ -53,12 +53,21 @@ def run():
                         assert page.locator("#foxPackUpload").count()==1,width
                         assert page.locator("#foxPortraitUpload").count()==1,width
                         assert page.locator("#foxFullUpload").count()==1,width
-                        assert page.locator("#foxInstall").evaluate("(e)=>e.compareDocumentPosition(document.querySelector('#characterBlock')) & Node.DOCUMENT_POSITION_FOLLOWING"),width
+                        assert page.locator("#foxInstall").evaluate("(e)=>document.querySelector('#characterBlock').contains(e)"),width
+                        assert page.locator("#foxJumpInstall").is_visible(),width
+                        assert page.get_by_text("Интерфейс 3.2 · загрузка образа").is_visible(),width
+                        page.locator("#foxJumpInstall").click()
+                        assert page.evaluate("document.activeElement.id")=="foxPackUpload",width
+                        assert page.locator("#foxInstall").is_visible(),width
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
                         bg=page.evaluate("getComputedStyle(document.documentElement).backgroundColor")
                         assert bg.startswith("rgb("),bg
                         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
+                        if width in (390,1440):
+                            folder=ROOT/"ui-previews"
+                            folder.mkdir(exist_ok=True)
+                            page.locator("#characterBlock").screenshot(path=str(folder/("character-install-"+str(width)+".png")))
                         if width in (390,1440):
                             snapshot=ROOT/"ui-previews"/("account-"+str(width)+".png")
                             snapshot.parent.mkdir(exist_ok=True)
