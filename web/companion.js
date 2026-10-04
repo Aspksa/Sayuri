@@ -1,4 +1,4 @@
-/* BEYOND 2.6 — context-aware reactions to real UI entities and runtime events. */
+/* BEYOND 2.7 — contextual presence, guarded interventions and important-event voice. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
@@ -6,7 +6,7 @@
   const frameA=el("foxAvatarFrameA"),frameB=el("foxAvatarFrameB");
   const menu = el("foxContextMenu"), panel = el("foxPanel");
   if (!shell || !avatar || !menu) return;
-  const keys = ["mode", "quiet", "enabled", "scale", "x", "y", "behavior"];
+  const keys = ["mode", "quiet", "enabled", "scale", "x", "y", "behavior", "presence", "voice_important"];
   const eventTypes = new Set([
     "route_changed", "document_opened", "document_uploaded", "record_selected",
     "task_started", "task_progress", "task_failed", "task_finished",
@@ -15,7 +15,7 @@
   const modules = {account:"Личный кабинет",beyond:"SAYURI BEYOND",chat:"Единый чат",
     files:"Документы / Облако / Sayuri",work:"Рабочие проекты",
     home:"Домашние проекты",updates:"Обновление проекта"};
-  let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null,behavior:"stationary"};
+  let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null,behavior:"stationary",presence:"normal",voice_important:true};
   let moduleName = "account", selected = null, recentEvent = null, liveStatus = null;
   let lastObjectUrl = null, portraitObjectUrl=null, initialized = false, savePending = false, queuedSave=false;
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
@@ -26,6 +26,8 @@
   let sleepWatchTimer=null,lastInteractionAt=Date.now();
   let spatialObserver=null,spatialResizeObserver=null,spatialReflowTimer=null;
   let contextReturnTimer=null,lastContextReaction=null;
+  let lastPresenceAt=0,presenceWindow=[],lastVoiceAt=0,presenceSequence=0;
+  const presenceDedupe=new Map();
   const spatialPadding=12;
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
@@ -214,6 +216,17 @@
     getSnapshot:()=>lastContextReaction?{...lastContextReaction}:null,
     react:detail=>{if(detail&&eventTypes.has(detail.type))reactToContext(detail);}
   });
+  window.SayuriPresence = Object.freeze({
+    getSnapshot:()=>({
+      mode:settings.presence,voiceImportant:settings.voice_important,
+      lastPresenceAt,windowCount:presenceWindow.filter(at=>Date.now()-at<300000).length,
+      sequence:presenceSequence
+    }),
+    test:(type="task_finished",force=false)=>deliverPresence({
+      type,module:moduleName,entity_type:type.startsWith("task_")?"task":"notification",
+      entity_id:"presence-test"
+    },"Тестовая реакция.",{force:Boolean(force),voice:false})
+  });
   const fallbackImage="/static/assets/avatar.webp";
   const fallbackDimensions = () => {
     shell.dataset.mode=settings.mode;
@@ -239,6 +252,14 @@
     };
     const behaviorStatus=el("foxBehaviorStatus");
     if(behaviorStatus)behaviorStatus.textContent=behaviorText[settings.behavior]||behaviorText.stationary;
+    document.querySelectorAll("[data-fox-presence]").forEach(button=>
+      button.setAttribute("aria-pressed",String(button.dataset.foxPresence===settings.presence)));
+    const voiceButton=el("foxVoiceImportant");
+    if(voiceButton){
+      voiceButton.setAttribute("aria-pressed",String(settings.voice_important));
+      voiceButton.querySelector("span").textContent=settings.voice_important?
+        "♫ Голос важных реакций":"♫ Голос важных реакций выключен";
+    }
   };
   const dimensions=()=> {
     // Visual scale only; pointer handlers clamp the actual transformed box.
@@ -364,6 +385,131 @@
   function firstVisible(...nodes){
     return nodes.flat().find(node=>elementVisible(node))||null;
   }
+  const presencePolicy={
+    calm:{gap:60000,max:2,threshold:2},
+    normal:{gap:25000,max:5,threshold:1},
+    lively:{gap:12000,max:9,threshold:0}
+  };
+  const eventImportance={
+    task_failed:3,contradiction_detected:3,notification_shown:2,
+    task_finished:2,memory_updated:1,document_uploaded:1,
+    document_opened:0,record_selected:0,project_opened:0,
+    task_started:0,task_progress:0
+  };
+  const presenceCooldown={
+    task_failed:12000,contradiction_detected:15000,notification_shown:20000,
+    task_finished:20000,memory_updated:30000,document_uploaded:35000,
+    document_opened:45000,record_selected:45000,project_opened:40000,
+    task_started:35000,task_progress:120000
+  };
+  const presenceLines={
+    task_failed:{
+      calm:"Нужна ваша проверка: задача завершилась с ошибкой.",
+      normal:"В задаче возникла ошибка. Я отметила её для проверки.",
+      lively:"Здесь возникла ошибка. Я рядом — давайте проверим задачу."
+    },
+    contradiction_detected:{
+      calm:"Обнаружено противоречие. Нужна проверка.",
+      normal:"Я нашла противоречие в данных. Лучше проверить его.",
+      lively:"Похоже, здесь есть противоречие. Я отметила его — посмотрим вместе?"
+    },
+    notification_shown:{
+      calm:"Появилось важное уведомление.",
+      normal:"Есть новое важное уведомление. Я подошла к нему.",
+      lively:"Появилось новое уведомление. Я уже рядом с ним."
+    },
+    task_finished:{
+      calm:"Задача завершена.",
+      normal:"Готово. Задача завершена.",
+      lively:"Готово! Задача завершена."
+    },
+    memory_updated:{
+      calm:"Память обновлена.",
+      normal:"Я обновила память.",
+      lively:"Новое знание сохранено в памяти."
+    },
+    document_uploaded:{
+      calm:"Материал добавлен.",
+      normal:"Новый материал добавлен. Он готов к работе.",
+      lively:"Материал добавлен. Могу перейти к нему, когда понадобится."
+    },
+    document_opened:{
+      calm:"Документ открыт.",
+      normal:"Я рядом с открытым документом.",
+      lively:"Документ открыт. Я буду рядом, пока вы с ним работаете."
+    },
+    record_selected:{
+      calm:"Объект выбран.",
+      normal:"Выбран новый объект.",
+      lively:"Вижу выбранный объект. Я рядом."
+    },
+    project_opened:{
+      calm:"Проект открыт.",
+      normal:"Проект открыт. Контекст переключён.",
+      lively:"Перешли в проект. Я сохранила его как текущий контекст."
+    },
+    task_started:{
+      calm:"Задача запущена.",
+      normal:"Задача выполняется.",
+      lively:"Начинаю сопровождать выполнение задачи."
+    }
+  };
+  function presenceKey(detail){
+    return [detail?.type||"",detail?.module||moduleName,
+      detail?.entity_type||"",detail?.entity_id||""].join("|");
+  }
+  function presenceDecision(detail,{force=false}={}){
+    if(settings.quiet&&!force)return {allow:false,reason:"quiet"};
+    const policy=presencePolicy[settings.presence]||presencePolicy.normal;
+    const importance=eventImportance[detail?.type]??0;
+    if(!force&&importance<policy.threshold)return {allow:false,reason:"threshold"};
+    const now=Date.now(),key=presenceKey(detail);
+    presenceWindow=presenceWindow.filter(at=>now-at<300000);
+    if(!force&&presenceWindow.length>=policy.max)return {allow:false,reason:"window"};
+    if(!force&&now-lastPresenceAt<policy.gap)return {allow:false,reason:"gap"};
+    const dedupeAt=presenceDedupe.get(key)||0;
+    const cooldown=presenceCooldown[detail?.type]??30000;
+    if(!force&&now-dedupeAt<cooldown)return {allow:false,reason:"duplicate"};
+    return {allow:true,reason:"ok",importance,key,now};
+  }
+  function updatePresenceStatus(result,detail=null){
+    const state=el("foxPresenceState"),info=el("foxPresenceDetail");
+    if(!state||!info)return;
+    const labels={ok:"Реакция разрешена",quiet:"Тихий режим",threshold:"Фильтр активности",
+      window:"Лимит вмешательств",gap:"Пауза между репликами",duplicate:"Повтор подавлен"};
+    state.textContent=labels[result?.reason]||"Готова";
+    if(result?.allow)info.textContent="Реплика показана. Следующие события проходят Presence Guard.";
+    else if(detail)info.textContent="Событие "+detail.type+" обработано без лишней реплики.";
+    else info.textContent="Защита от повторов и слишком частых вмешательств включена.";
+  }
+  function speakImportant(text,importance,{force=false}={}){
+    if(!settings.voice_important||settings.quiet||importance<2)return false;
+    if(!("speechSynthesis" in window))return false;
+    const now=Date.now();
+    if(!force&&now-lastVoiceAt<45000)return false;
+    speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance(text);
+    utterance.lang="ru-RU";utterance.rate=.94;utterance.pitch=1.02;
+    speechSynthesis.speak(utterance);
+    lastVoiceAt=now;
+    return true;
+  }
+  function deliverPresence(detail,fallbackText,{force=false,voice=false}={}){
+    const result=presenceDecision(detail,{force});
+    updatePresenceStatus(result,detail);
+    if(!result.allow)return false;
+    const lines=presenceLines[detail?.type];
+    const text=lines?.[settings.presence]||fallbackText||"Я рядом.";
+    if(text)message(text);
+    const now=result.now||Date.now();
+    lastPresenceAt=now;presenceWindow.push(now);
+    presenceDedupe.set(result.key||presenceKey(detail),now);
+    presenceSequence++;
+    const importance=result.importance??eventImportance[detail?.type]??0;
+    if(voice||importance>=3)speakImportant(text,importance,{force});
+    return true;
+  }
+
   function normalizedContextType(type){
     if(["file","document"].includes(type))return "document";
     if(["project","folder"].includes(type))return "project";
@@ -467,8 +613,7 @@
       const point=contextApproachPoint(target.node);
       autonomousMove(point.x,point.y,[expandRect(target.node.getBoundingClientRect(),10)]);
     }
-    if(["task_finished","task_failed","notification_shown","contradiction_detected"].includes(detail?.type))
-      message(copy.text);
+    deliverPresence(detail,copy.text);
     clearTimeout(contextReturnTimer);
     contextReturnTimer=setTimeout(()=>{
       if(lastContextReaction===null)return;
@@ -701,15 +846,24 @@
     fallbackDimensions();
     await saveSettings();
   }
+  async function choosePresence(presence){
+    if(!["calm","normal","lively"].includes(presence))return;
+    settings.presence=presence;
+    fallbackDimensions();
+    updatePresenceStatus(null);
+    await saveSettings();
+  }
   const actions={
     chat:()=>navigate("chat"),
     voice:()=> {
       if(!("speechSynthesis" in window)){message("Синтез речи недоступен в браузере.");return}
       if(settings.quiet){message("Сначала выключите тихий режим.");return}
+      const text="Я здесь. Рядом с вами.";
       speechSynthesis.cancel();
-      const utterance=new SpeechSynthesisUtterance("Господин, я здесь, рядом с вами.");
-      utterance.lang="ru-RU";utterance.rate=.95;
+      const utterance=new SpeechSynthesisUtterance(text);
+      utterance.lang="ru-RU";utterance.rate=.94;utterance.pitch=1.02;
       speechSynthesis.speak(utterance);
+      lastVoiceAt=Date.now();
     },
     activity:statusInfo,
     context:()=>message("Текущий раздел: "+(modules[moduleName]||"Не определён")+
@@ -908,6 +1062,13 @@
   el("foxScale").addEventListener("change",()=>saveSettings());
   document.querySelectorAll("[data-fox-behavior]").forEach(button=>
     button.addEventListener("click",()=>chooseBehavior(button.dataset.foxBehavior)));
+  document.querySelectorAll("[data-fox-presence]").forEach(button=>
+    button.addEventListener("click",()=>choosePresence(button.dataset.foxPresence)));
+  el("foxVoiceImportant").addEventListener("click",async()=>{
+    settings.voice_important=!settings.voice_important;
+    if(!settings.voice_important&&"speechSynthesis" in window)speechSynthesis.cancel();
+    fallbackDimensions();await saveSettings();
+  });
   for(const [id,kind] of [["foxModeCompact","compact"],
     ["foxModeFloating","floating"],["foxModeExpanded","expanded"]]){
     el(id).addEventListener("click",()=>chooseMode(kind));
@@ -926,6 +1087,8 @@
     if(spatialResizeObserver)spatialResizeObserver.disconnect();
     clearTimeout(spatialReflowTimer);
     clearTimeout(contextReturnTimer);
+    presenceDedupe.clear();presenceWindow=[];
+    if("speechSynthesis" in window)speechSynthesis.cancel();
     clearAnimationCache();
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
