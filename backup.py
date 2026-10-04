@@ -24,7 +24,7 @@ def main():
     # Online backup API safely copies SQLite WAL changes.
     with tempfile.TemporaryDirectory() as tmp:
         snapshot=Path(tmp)/"sayuri.sqlite3"
-        source=sqlite3.connect(f"file:{database}?mode=ro",uri=True)
+        source=sqlite3.connect(database)
         target=sqlite3.connect(snapshot)
         try:
             source.backup(target)
