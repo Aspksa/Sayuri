@@ -13,7 +13,7 @@ async function refresh(){
   if($('#chatView').classList.contains('active'))$('#title').textContent='Саюри · общий чат';
   await messages();
   const state=await api('/health');
-  $('#cloud').textContent=state.mentor_configured?'Наставник подключён':'Наставник: настройте Cloud.ru';
+  $('#cloud').textContent=state.mentor_configured?'Cloud.ru: проверка состояния…':'Cloud.ru: не настроено';
 }
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
@@ -186,7 +186,7 @@ $('#saveCloud').onclick=async()=>{
     $('#cloudSaveStatus').textContent=result.status+'. Ключ не отображается.';
     await loadCloudSettings();
     const h=await api('/health');
-    $('#cloud').textContent=h.mentor_configured?'Наставник подключён':'Наставник: настройте Cloud.ru';
+    $('#cloud').textContent=h.mentor_configured?'Cloud.ru: проверка состояния…':'Cloud.ru: не настроено';
   }catch(e){$('#cloudSaveStatus').textContent=e.message}
 };
 $('#testCloud').onclick=async()=>{
