@@ -109,6 +109,12 @@ def status_snapshot(*,cloud_configured:bool,model:str|None=None):
         elif _FINISHED_AT and monotonic()-_FINISHED_AT<6:
             state="completed"
             description="Операция завершена"
+        elif cloud_configured and _CLOUD["state"] in ("auth_error","insufficient_balance","rate_limited"):
+            state="attention"
+            description="Cloud.ru требует проверки настроек или ограничений"
+        elif cloud_configured and _CLOUD["state"] in ("unreachable","timeout"):
+            state="disconnected"
+            description="Нет связи с Cloud.ru"
         else:
             state="ready"
             description="Ожидает запроса"
@@ -169,13 +175,30 @@ async def _probe_cloud(key:str,base:str,model:str):
             response=await client.get(base.rstrip("/")+"/models",
                 headers={"Authorization":"Bearer "+key})
         status=response.status_code
+        # A healthy /models endpoint does not prove the selected model exists.
+        exists=None
+        if status==200:
+            try:
+                listing=response.json().get("data",[])
+                ids={item.get("id") for item in listing if isinstance(item,dict)}
+                if isinstance(listing,list) and ids:
+                    exists=(model in ids)
+            except (ValueError,TypeError,AttributeError):
+                exists=None
         with _LOCK:
             _CLOUD["model_id"]=model
             _CLOUD["latency_ms"]=round((monotonic()-start)*1000)
             _CLOUD["last_http_status"]=status
-            _CLOUD["last_error"]=None if status==200 else "HTTP "+str(status)
-            _CLOUD["state"]="connected" if status==200 else _classify_error(status,"http")
-            if status==200:_CLOUD["last_success_at"]=utc_now()
+            if status==200 and exists is False:
+                _CLOUD["state"]="degraded"
+                _CLOUD["last_error"]="Выбранная модель отсутствует в списке Cloud.ru"
+            elif status==200 and exists is None:
+                _CLOUD["state"]="unknown"
+                _CLOUD["last_error"]="Не удалось проверить доступность модели"
+            else:
+                _CLOUD["state"]="connected" if status==200 else _classify_error(status,"http")
+                _CLOUD["last_error"]=None if status==200 else "HTTP "+str(status)
+            if status==200 and exists is True:_CLOUD["last_success_at"]=utc_now()
     except httpx.TimeoutException:
         with _LOCK:_CLOUD.update(state="timeout",last_error="timeout",last_http_status=None)
     except httpx.HTTPError:
