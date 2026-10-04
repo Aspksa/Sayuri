@@ -16,7 +16,7 @@
     home:"Домашние проекты",updates:"Обновление проекта"};
   let settings = {mode:"compact",quiet:false,enabled:true,scale:1,x:null,y:null};
   let moduleName = "account", selected = null, recentEvent = null, liveStatus = null;
-  let lastObjectUrl = null, initialized = false, savePending = false;
+  let lastObjectUrl = null, portraitObjectUrl=null, initialized = false, savePending = false, queuedSave=false;
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
@@ -39,6 +39,10 @@
     if (detail.type==="route_changed" && selected && selected.module!==moduleId) selected=null;
   }
   window.addEventListener("sayuri:context",e=>dispatch(e.detail));
+  window.addEventListener("sayuri:runtime",e=>{
+    const state=e.detail?.state;
+    if(typeof state==="string")el("foxStatus").dataset.state=state;
+  });
   window.SayuriContext = Object.freeze({getCurrent:()=>({module:moduleName,selected,
     latestEvent:recentEvent})});
   const fallbackImage="/static/assets/avatar.webp";
@@ -83,7 +87,8 @@
     settings.y=bound(y/Math.max(1,innerHeight-h),0,1);
   }
   async function saveSettings() {
-    if (!usable() || savePending) return;
+    if (!usable()) return;
+    if (savePending) { queuedSave=true;return; }
     savePending=true;
     try {
       const response=await fetch("/api/companion/settings",{
@@ -92,7 +97,10 @@
       if(!response.ok)throw Error("HTTP "+response.status);
     } catch {
       el("foxAppearanceStatus").textContent="Не удалось сохранить настройки; проверьте сервер.";
-    } finally {savePending=false;}
+    } finally {
+      savePending=false;
+      if(queuedSave){queuedSave=false;saveSettings();}
+    }
   }
   async function updateImage() {
     if (!usable()) return;
@@ -117,8 +125,10 @@
         headers:authHeaders(),cache:"no-store"});
       if(portrait.ok){
         const url=URL.createObjectURL(await portrait.blob());
+        const old=portraitObjectUrl;portraitObjectUrl=url;
         document.querySelectorAll(".profile-avatar,.character-portrait")
           .forEach(node=>{node.src=url;});
+        if(old)URL.revokeObjectURL(old);
       }
     }catch{}
   }
@@ -326,7 +336,10 @@
   }
   window.addEventListener("resize",()=>{position();if(!menu.hidden){
     const r=menu.getBoundingClientRect();openMenu(r.left,r.top)}});
-  window.addEventListener("pagehide",()=>{if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl)});
+  window.addEventListener("pagehide",()=>{
+    if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
+    if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
+  });
   position();
   const loginWait=setInterval(()=>{
     if(usable()){clearInterval(loginWait);init();}
