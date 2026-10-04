@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
-from server.paths import cloud_root, prepare_data_dir, ensure_project_folders
+from server.paths import prepare_project_root, prepare_data_dir, ensure_project_folders
 from dotenv import set_key
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -283,7 +283,7 @@ def persona(authorization: str | None=Header(None)):
 
 
 # Owner-granted read-only project explorer.
-PROJECT_ROOT = cloud_root()
+PROJECT_ROOT = prepare_project_root(ROOT)
 PROJECT_SCOPES = {"work":"Рабочие проекты","home":"Домашние проекты"}
 def project_base(category: str):
     if category not in PROJECT_SCOPES: raise HTTPException(404,"Неизвестный проект")
