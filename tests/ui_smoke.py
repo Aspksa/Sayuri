@@ -363,6 +363,8 @@ def run():
                         target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
                         target_card.locator("button").filter(has_text="Открыть").click()
                         page.wait_for_function("name => document.querySelector('#documentsCurrentFolder').textContent === name",arg=target_name)
+                        page.wait_for_function("""name => Array.from(document.querySelectorAll('#driveFiles .drive-file-name'))
+                          .some(node => node.textContent === name)""",arg=renamed)
                         assert page.locator("#driveFiles .drive-file").filter(has_text=renamed).count()==1,(width,renamed)
                         # Delete moved test folder, then its empty destination; this keeps smoke tests repeatable.
                         moved_card=page.locator("#driveFiles .drive-file").filter(has_text=renamed).first
