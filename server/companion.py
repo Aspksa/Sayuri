@@ -254,8 +254,8 @@ def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
             for state, items in frames.items():
                 folder = temporary / state
                 folder.mkdir(parents=True, exist_ok=True)
-                for filename, payload in sorted(items):
-                    (folder / filename).write_bytes(payload)
+                for index, (_, payload) in enumerate(sorted(items), start=1):
+                    (folder / f"{index:03d}.png").write_bytes(payload)
             if target.exists():
                 os.replace(target, backup)
             os.replace(temporary, target)
