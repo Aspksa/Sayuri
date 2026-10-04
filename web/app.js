@@ -242,7 +242,7 @@ $('#testCloud').onclick=async()=>{
 
 
 /* The character is expressive artwork, not an AI emotional measurement. */
-let voiceEnabled=false,quietMotion=false,driveCurrent='',driveTimer=null;
+let voiceEnabled=false,quietMotion=false,driveCurrent='',driveTimer=null,driveMenuItem=null;
 const sayuriGreetings=[
   {line:'Господин, рада снова вас видеть. К чему приступим сегодня?',expression:'✿ приветливая улыбка'},
   {line:'Все записи на своих местах, Господин. Я готова учиться дальше.',expression:'✧ внимательный взгляд'},
@@ -331,8 +331,67 @@ async function loadDevelopment(){
  }catch(e){history.textContent='Не удалось загрузить историю развития: '+e.message}
 }
 function driveRelativeParent(path){return path.split('/').slice(0,-1).join('/')}
+function loadDrivePins(){
+ try{return JSON.parse(localStorage.getItem('sayuri_document_pins')||'[]').filter(x=>x&&typeof x.path==='string')}
+ catch{return []}
+}
+function saveDrivePins(pins){localStorage.setItem('sayuri_document_pins',JSON.stringify(pins.slice(0,30)));renderDrivePins()}
+function updateDrivePinsPrefix(oldPath,newPath=null){
+ const pins=loadDrivePins(),prefix=oldPath+'/';
+ const next=[];
+ for(const pin of pins){
+  if(pin.path===oldPath||pin.path.startsWith(prefix)){
+   if(newPath===null)continue;
+   const suffix=pin.path===oldPath?'':pin.path.slice(oldPath.length);
+   next.push({...pin,path:newPath+suffix,name:pin.path===oldPath?newPath.split('/').pop():pin.name});
+  }else next.push(pin);
+ }
+ saveDrivePins(next);
+}
+function renderDrivePins(){
+ const box=$('#documentsPinnedItems'),wrap=$('#documentsPinned');if(!box||!wrap)return;
+ box.replaceChildren();
+ const pins=loadDrivePins();
+ wrap.hidden=!pins.length;
+ for(const pin of pins){
+  const button=document.createElement('button');button.type='button';button.className='documents-pin';
+  button.title=folderDisplayPath(pin.path);
+  const icon=document.createElement('span');icon.textContent=pin.is_dir?'📁':'📄';
+  const name=document.createElement('span');name.textContent=pin.name||pin.path.split('/').pop();
+  const close=document.createElement('b');close.textContent='×';close.title='Открепить';
+  close.onclick=event=>{event.stopPropagation();saveDrivePins(pins.filter(x=>x.path!==pin.path))};
+  button.append(icon,name,close);
+  button.onclick=()=>pin.is_dir?loadDrive(pin.path):driveDownload(pin.path,pin.name||pin.path.split('/').pop());
+  box.append(button);
+ }
+}
+function toggleDrivePin(item){
+ const pins=loadDrivePins(),index=pins.findIndex(x=>x.path===item.path);
+ if(index>=0)pins.splice(index,1);
+ else pins.unshift({path:item.path,name:item.name,is_dir:item.is_dir});
+ saveDrivePins(pins);
+ if(driveMenuItem?.path===item.path)syncDocumentsContextMenu();
+}
+
 function driveCard(name,kind,primary,rename,remove,context=null){
  const card=document.createElement('div');card.className='drive-file';card.dataset.kind=kind;
+ const managed=context&&context.module==='files'&&['project','file'].includes(context.type);
+ if(managed){
+  card.dataset.drivePath=String(context.id);
+  card.dataset.driveName=name;
+  card.dataset.driveIsDir=String(kind==='folder');
+  card.draggable=true;
+  card.addEventListener('contextmenu',event=>{
+   if(event.target.closest('button'))return;
+   event.preventDefault();openDocumentsContextMenu(card,event.clientX,event.clientY);
+  });
+  card.addEventListener('dragstart',event=>{
+   event.dataTransfer.effectAllowed='move';
+   event.dataTransfer.setData('text/x-sayuri-drive-path',String(context.id));
+   card.classList.add('dragging');
+  });
+  card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+ }
  if(kind==='folder'){
   card.tabIndex=0;
   card.title='Двойной клик или Enter — открыть папку';
@@ -353,20 +412,168 @@ function driveCard(name,kind,primary,rename,remove,context=null){
  const actions=document.createElement('div');actions.className='drive-file-actions';
  const open=document.createElement('button');open.textContent=kind==='folder'||kind==='shortcut'?'Открыть':'Скачать';open.onclick=primary;
  actions.append(open);
- if(rename){
-  const edit=document.createElement('button');edit.textContent='✎';edit.title='Переименовать';edit.onclick=rename;actions.append(edit);
+ if(managed){
+  const more=document.createElement('button');more.textContent='⋯';more.title='Действия';more.setAttribute('aria-label','Действия: '+name);
+  more.onclick=event=>{const r=event.currentTarget.getBoundingClientRect();openDocumentsContextMenu(card,r.right,r.bottom+4)};
+  actions.append(more);
+ }else{
+  if(rename){
+   const edit=document.createElement('button');edit.textContent='✎';edit.title='Переименовать';edit.onclick=rename;actions.append(edit);
+  }
+  if(remove){
+   const del=document.createElement('button');del.textContent='×';del.title='Удалить';del.onclick=remove;actions.append(del);
+  }
  }
- if(remove){
-  const del=document.createElement('button');del.textContent='×';del.title='Удалить';del.onclick=remove;actions.append(del);
- }
- card.append(icon,title,meta,actions);return card;
+ card.append(icon,title,meta,actions);
+ if(kind==='folder'&&managed)setupDriveDropTarget(card,String(context.id));
+ return card;
 }
+function driveItemFromCard(card){
+ if(!card?.dataset.drivePath)return null;
+ return {path:card.dataset.drivePath,name:card.dataset.driveName||card.dataset.drivePath.split('/').pop(),
+   is_dir:card.dataset.driveIsDir==='true',card};
+}
+function closeDocumentsContextMenu(){
+ const menu=$('#documentsContextMenu');menu.hidden=true;driveMenuItem=null;
+}
+function syncDocumentsContextMenu(){
+ if(!driveMenuItem)return;
+ const pinned=loadDrivePins().some(x=>x.path===driveMenuItem.path);
+ $('#documentsContextKind').textContent=driveMenuItem.is_dir?'Папка':'Файл';
+ $('#documentsContextName').textContent=driveMenuItem.name;
+ const pin=$('[data-doc-action="pin"]');
+ pin.querySelector('span').textContent=pinned?'Открепить':'Закрепить';
+ pin.firstChild.textContent=pinned?'★ ':'☆ ';
+}
+function openDocumentsContextMenu(card,x,y){
+ const item=driveItemFromCard(card);if(!item)return;
+ driveMenuItem=item;syncDocumentsContextMenu();
+ const menu=$('#documentsContextMenu');menu.hidden=false;
+ const pad=8,w=menu.offsetWidth||220,h=menu.offsetHeight||260;
+ menu.style.left=Math.max(pad,Math.min(x,innerWidth-w-pad))+'px';
+ menu.style.top=Math.max(pad,Math.min(y,innerHeight-h-pad))+'px';
+}
+function closeDocumentsDialog(id){
+ const dialog=$(id);if(typeof dialog.close==='function'&&dialog.open)dialog.close();else dialog.removeAttribute('open');
+}
+function showDocumentsDialog(id){
+ const dialog=$(id);if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+}
+async function renameDriveItem(item,newName){
+ const result=await api('/drive/rename','POST',{path:item.path,new_name:newName});
+ updateDrivePinsPrefix(item.path,result.path);
+ $('#documentsActionStatus').textContent='«'+item.name+'» переименован в «'+newName+'».';
+ await loadDrive(driveCurrent);
+ return result.path;
+}
+async function moveDriveItem(path,destination,{announce=true}={}){
+ const card=[...document.querySelectorAll('#driveFiles [data-drive-path]')].find(node=>node.dataset.drivePath===path);
+ const name=card?.dataset.driveName||path.split('/').pop();
+ const result=await api('/drive/move','POST',{path,destination});
+ if(result.path!==path)updateDrivePinsPrefix(path,result.path);
+ if(announce)$('#documentsActionStatus').textContent=result.moved?
+   '«'+name+'» перемещён в '+folderDisplayPath(destination)+'.':'Объект уже находится в выбранной папке.';
+ await loadDrive(driveCurrent);
+ return result;
+}
+async function deleteDriveItem(item){
+ if(!confirm('Удалить «'+item.name+'»? Папка удаляется только если она пуста.'))return false;
+ await api('/drive/item?path='+encodeURIComponent(item.path),'DELETE');
+ updateDrivePinsPrefix(item.path,null);
+ $('#documentsActionStatus').textContent='«'+item.name+'» удалён.';
+ await loadDrive(driveCurrent);return true;
+}
+function setupDriveDropTarget(node,destination){
+ node.dataset.dropDestination=destination;
+ if(node.dataset.dropBound==='true')return;
+ node.dataset.dropBound='true';
+ node.addEventListener('dragover',event=>{
+  const source=event.dataTransfer.types.includes('text/x-sayuri-drive-path');
+  if(!source)return;event.preventDefault();event.dataTransfer.dropEffect='move';node.classList.add('drop-target');
+ });
+ node.addEventListener('dragleave',event=>{if(!node.contains(event.relatedTarget))node.classList.remove('drop-target')});
+ node.addEventListener('drop',async event=>{
+  event.preventDefault();node.classList.remove('drop-target');
+  const source=event.dataTransfer.getData('text/x-sayuri-drive-path');
+  const target=node.dataset.dropDestination||'';
+  if(!source||source===target)return;
+  try{await moveDriveItem(source,target)}catch(error){$('#documentsActionStatus').textContent='Не удалось переместить: '+error.message}
+ });
+}
+async function openRenameItemDialog(item){
+ driveMenuItem=item;
+ $('#renameItemCurrent').textContent=item.name;
+ $('#renameItemName').value=item.name;
+ $('#renameItemError').textContent='';
+ showDocumentsDialog('#renameItemDialog');
+ requestAnimationFrame(()=>{$('#renameItemName').focus();$('#renameItemName').select()});
+}
+async function openMoveItemDialog(item){
+ driveMenuItem=item;
+ $('#moveItemCurrent').textContent=item.name;
+ $('#moveItemError').textContent='';
+ const select=$('#moveItemDestination');select.replaceChildren();
+ try{
+  const data=await api('/drive/folders');
+  const prefix=item.is_dir?item.path+'/':null;
+  for(const folder of data.folders){
+   if(item.is_dir&&(folder.path===item.path||folder.path.startsWith(prefix)))continue;
+   const option=document.createElement('option');option.value=folder.path;
+   option.textContent=folder.path?folderDisplayPath(folder.path):'Мои файлы';
+   select.append(option);
+  }
+  const currentParent=driveRelativeParent(item.path);
+  select.value=currentParent;
+  showDocumentsDialog('#moveItemDialog');
+  requestAnimationFrame(()=>select.focus());
+ }catch(error){$('#documentsActionStatus').textContent='Не удалось получить список папок: '+error.message}
+}
+document.querySelectorAll('#documentsContextMenu [data-doc-action]').forEach(button=>button.onclick=async()=>{
+ const item=driveMenuItem;if(!item)return;
+ const action=button.dataset.docAction;
+ closeDocumentsContextMenu();
+ try{
+  if(action==='open'){item.is_dir?loadDrive(item.path):driveDownload(item.path,item.name);return}
+  if(action==='pin'){toggleDrivePin(item);return}
+  if(action==='rename'){openRenameItemDialog(item);return}
+  if(action==='move'){openMoveItemDialog(item);return}
+  if(action==='delete'){await deleteDriveItem(item);return}
+ }catch(error){$('#documentsActionStatus').textContent=error.message}
+});
+$('#renameItemClose').onclick=()=>closeDocumentsDialog('#renameItemDialog');
+$('#renameItemCancel').onclick=()=>closeDocumentsDialog('#renameItemDialog');
+$('#renameItemForm').onsubmit=async event=>{
+ event.preventDefault();if(!driveMenuItem)return;
+ const input=$('#renameItemName'),error=$('#renameItemError'),submit=$('#renameItemSubmit');
+ const next=input.value.trim(),problem=folderNameError(next);
+ if(problem){error.textContent=problem;input.focus();return}
+ if(next===driveMenuItem.name){closeDocumentsDialog('#renameItemDialog');return}
+ submit.disabled=true;
+ try{await renameDriveItem(driveMenuItem,next);closeDocumentsDialog('#renameItemDialog')}
+ catch(e){error.textContent=e.message;input.focus()}
+ finally{submit.disabled=false}
+};
+$('#moveItemClose').onclick=()=>closeDocumentsDialog('#moveItemDialog');
+$('#moveItemCancel').onclick=()=>closeDocumentsDialog('#moveItemDialog');
+$('#moveItemForm').onsubmit=async event=>{
+ event.preventDefault();if(!driveMenuItem)return;
+ const submit=$('#moveItemSubmit'),error=$('#moveItemError');submit.disabled=true;error.textContent='';
+ try{await moveDriveItem(driveMenuItem.path,$('#moveItemDestination').value);closeDocumentsDialog('#moveItemDialog')}
+ catch(e){error.textContent=e.message}
+ finally{submit.disabled=false}
+};
+document.addEventListener('pointerdown',event=>{
+ const menu=$('#documentsContextMenu');
+ if(!menu.hidden&&!menu.contains(event.target)&&!event.target.closest('.drive-file'))closeDocumentsContextMenu();
+});
+window.addEventListener('resize',closeDocumentsContextMenu);
+
 function folderDisplayPath(path){
  return path?'Мои файлы / '+path.split('/').join(' / '):'Корень хранилища';
 }
 function renderFolderHierarchy(steps,directItems,searching=false){
  const tree=$('#documentsFolderTree');if(!tree)return;
- tree.replaceChildren();
+ tree.replaceChildren();renderDrivePins();
  const addNode=(title,path,{active=false,child=false,depth=0}={})=>{
   const button=document.createElement('button');
   button.type='button';button.className='documents-folder-node'+(active?' active':'')+(child?' child':'');
@@ -376,6 +583,7 @@ function renderFolderHierarchy(steps,directItems,searching=false){
   button.append(icon,text);
   button.title=folderDisplayPath(path);
   button.onclick=()=>{if(path!==driveCurrent){$('#driveSearch').value='';loadDrive(path)}};
+  setupDriveDropTarget(button,path);
   tree.append(button);
  };
  for(const [index,step] of steps.entries())
@@ -408,6 +616,11 @@ async function loadDrive(relative=driveCurrent){
  const current=steps[steps.length-1];
  $('#documentsCurrentFolder').textContent=current.title;
  $('#documentsCurrentPath').textContent=folderDisplayPath(relative);
+ const fileArea=$('.documents-file-area');
+ if(!fileArea.dataset.dropReady){
+  fileArea.dataset.dropReady='true';
+  setupDriveDropTarget(fileArea,relative);
+ }else fileArea.dataset.dropDestination=relative;
  const parentButton=$('#documentsParentFolder');
  parentButton.disabled=!relative;
  parentButton.onclick=()=>{if(relative){$('#driveSearch').value='';loadDrive(driveRelativeParent(relative))}};
@@ -439,14 +652,8 @@ async function loadDrive(relative=driveCurrent){
       type:'project_opened',module:'files',entity_type:'project',entity_id:item.path}}));
     $('#driveSearch').value='';loadDrive(item.path)
    }:()=>driveDownload(item.path,item.name);
-   const rename=async()=>{
-    const next=prompt('Новое название',item.name);if(next===null||next===item.name)return;
-    try{await api('/drive/rename','POST',{path:item.path,new_name:next});await loadDrive()}catch(e){alert(e.message)}
-   };
-   const remove=async()=>{
-    if(!confirm('Удалить '+item.name+'? Папку можно удалить, только если она пуста.'))return;
-    try{await api('/drive/item?path='+encodeURIComponent(item.path),'DELETE');await loadDrive()}catch(e){alert(e.message)}
-   };
+   const rename=()=>openRenameItemDialog({path:item.path,name:item.name,is_dir:item.is_dir});
+   const remove=()=>deleteDriveItem({path:item.path,name:item.name,is_dir:item.is_dir});
    output.append(driveCard(item.name,item.is_dir?'folder':'file',open,rename,remove,{
     type:item.is_dir?'project':'file',id:item.path,module:'files'
    }));
