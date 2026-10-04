@@ -453,3 +453,20 @@ def put_preferences(body: PreferencesIn, authorization: str | None = Header(None
                      ON CONFLICT(user_id) DO UPDATE SET mode=excluded.mode,intimacy=excluded.intimacy""",
                   (u,body.mode,body.intimacy))
     return {"mode":body.mode,"intimacy":body.intimacy}
+
+@app.delete("/api/documents/{did}")
+def remove_document(did: str, authorization: str | None = Header(None)):
+    u=auth(authorization)
+    with db() as c:
+        doc=c.execute("SELECT path FROM documents WHERE id=? AND user_id=?",(did,u)).fetchone()
+        if not doc: raise HTTPException(404,"Документ не найден")
+        # Deleting the DB reference is irreversible; return an error if file cleanup fails.
+        path=Path(doc["path"])
+        if not path.is_relative_to(DATA / "uploads"):
+            raise HTTPException(403,"Неверный путь вложения")
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise HTTPException(500,"Не удалось удалить файл") from exc
+        c.execute("DELETE FROM documents WHERE id=? AND user_id=?",(did,u))
+    return {"ok":True}
