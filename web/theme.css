@@ -45,10 +45,10 @@ p{margin:8px 0 14px}
 .profile-content span{font-size:12px;color:#e0c4de}
 .profile-content small{font-size:11px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
 #showAccount>.ui-icon{width:14px;flex-basis:14px;color:var(--pink)}
-#collapseSidebar{position:absolute;right:-3px;top:95px;width:44px;height:44px;padding:11px;border:0;background:transparent;
+#collapseSidebar{position:absolute;right:0;top:auto;bottom:-34px;width:44px;height:44px;padding:11px;border:0;background:transparent;
  display:flex;align-items:center;justify-content:center;color:var(--subtle)}
 #collapseSidebar:hover{color:var(--pink)}
-#sayuriSidebar .sidebar-scroller{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:15px 1px 12px;
+#sayuriSidebar .sidebar-scroller{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden;padding:32px 1px 12px;
  scrollbar-width:thin;scrollbar-color:#585166 transparent;overscroll-behavior:contain}
 .sidebar-section-title{font-size:10px;letter-spacing:.12em;color:var(--subtle);font-weight:700;margin:12px 12px 10px}
 .sidebar-separator{height:1px;margin:22px 8px 16px;background:#ffffff14}
@@ -150,6 +150,17 @@ main>header{height:74px;min-height:74px;display:flex;align-items:center;gap:12px
 #cloudSetup input{max-width:700px}
 #cloudSetup button,#saveStyle,#reviewChat,#fileForm button,#checkUpdate,#installUpdate{background:#554069;color:#fff0ff}
 #cloudSetup button:hover,#saveStyle:hover,#reviewChat:hover,#fileForm button:hover,#checkUpdate:hover,#installUpdate:hover{background:#6c4c7b}
+.advanced-settings{border:1px solid #454052;background:#1d1e2b;border-radius:17px;overflow:hidden;margin:16px 0}
+.advanced-settings>summary{cursor:pointer;list-style:none;padding:18px 22px;display:flex;align-items:center;
+ justify-content:space-between;gap:10px;color:#f3e9f5;font-weight:650;font-size:14px}
+.advanced-settings>summary:hover{background:#292636}
+.advanced-settings>summary::-webkit-details-marker{display:none}
+.advanced-settings>summary::before{content:"⚙";color:var(--pink);margin-right:8px}
+.advanced-settings>summary span{font-size:12px;color:var(--subtle);font-weight:400;margin-left:auto}
+.advanced-settings>summary::after{content:"⌄";font-size:18px;color:var(--pink);margin-left:7px;transition:transform .16s}
+.advanced-settings[open]>summary::after{transform:rotate(180deg)}
+.advanced-body{padding:0 16px 16px;border-top:1px solid #ffffff12}
+.advanced-body>section{margin:14px 0;background:#242332}
 .drive-layout{max-width:1160px}
 .drive-top{display:flex;justify-content:space-between;gap:16px;align-items:start}
 .drive-chip{font-size:11px;padding:7px 12px;background:#293e39;border:1px solid #426b59;border-radius:22px;color:#a8ead0;white-space:nowrap}
@@ -236,6 +247,8 @@ body.sidebar-collapsed .main-nav button .ui-icon,body.sidebar-collapsed #showUpd
  .compose button{min-width:48px;height:48px}
  .drive-top{display:block}.drive-chip{display:inline-block;margin-top:8px}
  .drive-toolbar input{max-width:none;margin:0;width:100%}
+ .advanced-settings>summary{display:block}
+ .advanced-settings>summary span{display:block;margin:5px 0 0}
  body.sidebar-collapsed #sayuriSidebar .profile-content,
  body.sidebar-collapsed #showAccount>.ui-icon,body.sidebar-collapsed .sidebar-section-title,
  body.sidebar-collapsed .diagnostic-text,body.sidebar-collapsed .diag-arrow,
