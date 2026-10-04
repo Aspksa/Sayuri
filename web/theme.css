@@ -339,3 +339,6 @@ body.sidebar-collapsed .main-nav button .ui-icon,body.sidebar-collapsed #showUpd
  #showBeyond{min-height:45px!important}
  body.sidebar-collapsed #showBeyond .beyond-menu-sigil{display:inline-flex}
 }
+
+body.sidebar-collapsed #sayuriSidebar #showBeyond .beyond-menu-sigil{display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px}
+#sayuriSidebar .main-nav #showBeyond .beyond-menu-sigil{flex:0 0 19px}
