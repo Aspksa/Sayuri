@@ -62,3 +62,52 @@ def test_updates_do_not_run_when_local_changes(tmp_path,monkeypatch):
     with pytest.raises(updates.UpdateError,match="локальные изменения"):
         updates.apply_update(tmp_path)
     assert not any(call[0] in ("fetch","merge") for call in calls)
+
+
+def test_missing_documents_redirection_uses_local_documents(tmp_path, monkeypatch):
+    home=tmp_path/"profile"
+    home.mkdir()
+    monkeypatch.setattr(paths.Path,"home",lambda:home)
+    monkeypatch.delenv("SAYURI_DOCUMENTS_DIR",raising=False)
+    monkeypatch.delenv("SAYURI_PROJECTS_DIR",raising=False)
+    monkeypatch.delenv("SAYURI_DATA_DIR",raising=False)
+    assert paths.documents_directory()==home/"Documents"
+    repo=tmp_path/"code"
+    repo.mkdir()
+    root=paths.prepare_data_dir(repo)
+    assert root==home/"Documents"/"Облако"/"Sayuri"
+    assert root.is_dir()
+    projects=paths.prepare_project_root(repo)
+    assert (projects/"Рабочие проекты").is_dir()
+    assert (projects/"Домашние проекты").is_dir()
+
+
+def test_unreachable_default_cloud_falls_back_to_local_repo(tmp_path,monkeypatch):
+    # Mimic inaccessible OneDrive paths without modifying a real filesystem.
+    requested=tmp_path/"broken"/"Облако"/"Sayuri"
+    monkeypatch.setattr(paths,"cloud_root",lambda:requested)
+    monkeypatch.delenv("SAYURI_DATA_DIR",raising=False)
+    monkeypatch.delenv("SAYURI_PROJECTS_DIR",raising=False)
+    original=paths.Path.mkdir
+    def inaccessible(self,*args,**kwargs):
+        if self==requested:
+            raise FileNotFoundError("redirected OneDrive location missing")
+        return original(self,*args,**kwargs)
+    monkeypatch.setattr(paths.Path,"mkdir",inaccessible)
+    repo=tmp_path/"repo"
+    assert paths.prepare_data_dir(repo)==repo/"data"
+    projects=paths.prepare_project_root(repo)
+    assert projects==repo/"data"/"projects"
+    assert (projects/"Рабочие проекты").is_dir()
+
+
+def test_never_relocates_existing_sqlite_when_cloud_appears(tmp_path,monkeypatch):
+    repo=tmp_path/"repo"
+    legacy=repo/"data";legacy.mkdir(parents=True)
+    (legacy/"sayuri.sqlite3").write_bytes(b"old database")
+    cloud=tmp_path/"available cloud"
+    cloud.mkdir()
+    (cloud/"sayuri.sqlite3").write_bytes(b"another database")
+    monkeypatch.setattr(paths,"cloud_root",lambda:cloud)
+    monkeypatch.delenv("SAYURI_DATA_DIR",raising=False)
+    assert paths.prepare_data_dir(repo)==legacy
