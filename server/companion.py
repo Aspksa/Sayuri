@@ -61,6 +61,21 @@ def check_png(content: bytes) -> tuple[int, int]:
 def register_companion_routes(app, *, auth, db, data_root: Path, stamp):
     from fastapi import Header
 
+    @app.get("/api/build/info")
+    def read_local_build(authorization: str | None = Header(None)):
+        auth(authorization)
+        app_root = Path(__file__).resolve().parents[1]
+        try:
+            info = json.loads((app_root / "web" / "build.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            info = {}
+        return {
+            "ui_version": info.get("ui_version", "неизвестно"),
+            "persona_version": info.get("persona_version", "2.0.0"),
+            "running_folder": str(app_root),
+            "installation": "git" if (app_root / ".git").exists() else "zip",
+        }
+
     @app.get("/api/companion/settings")
     def read_companion_settings(authorization: str | None = Header(None)):
         owner = auth(authorization)
