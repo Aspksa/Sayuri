@@ -1,8 +1,9 @@
-/* BEYOND 2.3 — contextual character motion layered on real runtime state. */
+/* BEYOND 2.4 — frame animation engine with graceful static-image fallback. */
 (() => {
   "use strict";
   const el = id => document.getElementById(id);
   const shell = el("foxShell"), avatar = el("foxAvatar"), picture = el("foxAvatarImage");
+  const frameA=el("foxAvatarFrameA"),frameB=el("foxAvatarFrameB");
   const menu = el("foxContextMenu"), panel = el("foxPanel");
   if (!shell || !avatar || !menu) return;
   const keys = ["mode", "quiet", "enabled", "scale", "x", "y", "behavior"];
@@ -20,6 +21,9 @@
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
   let behaviorTimer=null,returnTimer=null,autoMoveTimer=null,motionTimer=null,waypointIndex=0,lastManualMoveAt=0;
   let runtimeState="ready",motionState="idle";
+  let animationMeta={installed:false,states:{}},animationTimer=null,animationRequest=0,activeFrameLayer=0;
+  const animationCache=new Map(),animationUrls=new Set();
+  let sleepWatchTimer=null,lastInteractionAt=Date.now();
   const token = () => sessionStorage.getItem("sayuri_token") || "";
   const authHeaders = () => ({Authorization:"Bearer " + token()});
   const bound = (v,a,b) => Math.min(b,Math.max(a,v));
@@ -59,8 +63,91 @@
   window.addEventListener("sayuri:context",e=>dispatch(e.detail));
   const motionNames={
     idle:"Ожидает",walking:"Идёт",thinking:"Размышляет",reading:"Изучает",
-    working:"Работает",happy:"Радуется",attention:"Требует внимания"
+    working:"Работает",happy:"Радуется",attention:"Требует внимания",sleep:"Спит"
   };
+  const animationStateForMotion={
+    idle:"idle",walking:"walk",thinking:"think",reading:"read",
+    working:"work",happy:"happy",attention:"attention",sleep:"sleep"
+  };
+  function stopFrameAnimation(){
+    if(animationTimer)clearInterval(animationTimer);
+    animationTimer=null;
+  }
+  function clearAnimationCache(){
+    stopFrameAnimation();
+    for(const url of animationUrls)URL.revokeObjectURL(url);
+    animationUrls.clear();
+    animationCache.clear();
+    shell.classList.remove("fox-frame-engine");
+    if(frameA){frameA.removeAttribute("src");frameA.style.opacity="0";}
+    if(frameB){frameB.removeAttribute("src");frameB.style.opacity="0";}
+  }
+  async function loadAnimationMeta(){
+    if(!usable())return;
+    try{
+      const response=await fetch("/api/companion/animation",{headers:authHeaders(),cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      animationMeta=await response.json();
+    }catch{
+      animationMeta={installed:false,states:{}};
+    }
+    const summary=el("foxAnimationSummary");
+    if(summary){
+      const entries=Object.entries(animationMeta.states||{});
+      summary.textContent=entries.length?
+        "Установлено: "+entries.map(([state,info])=>state+" · "+info.frames+" кадр.").join("  "):
+        "Покадровый пакет ещё не установлен — используется обычный PNG.";
+    }
+  }
+  async function ensureAnimationFrames(state){
+    if(animationCache.has(state))return animationCache.get(state);
+    const info=animationMeta.states?.[state];
+    if(!info?.frames)return [];
+    const urls=[];
+    for(let i=1;i<=info.frames;i++){
+      const response=await fetch("/api/companion/animation/"+state+"/"+i,{
+        headers:authHeaders(),cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const url=URL.createObjectURL(await response.blob());
+      animationUrls.add(url);urls.push(url);
+    }
+    animationCache.set(state,urls);
+    return urls;
+  }
+  function showAnimationFrame(url){
+    if(!frameA||!frameB)return;
+    const next=activeFrameLayer===0?frameA:frameB;
+    const previous=activeFrameLayer===0?frameB:frameA;
+    next.src=url;
+    next.style.opacity="1";
+    previous.style.opacity="0";
+    activeFrameLayer=activeFrameLayer===0?1:0;
+  }
+  async function playAnimationState(motion){
+    const request=++animationRequest;
+    stopFrameAnimation();
+    const state=animationStateForMotion[motion];
+    if(settings.mode==="compact"||!animationMeta.installed||!animationMeta.states?.[state]){
+      shell.classList.remove("fox-frame-engine");
+      return;
+    }
+    try{
+      const frames=await ensureAnimationFrames(state);
+      if(request!==animationRequest||motionState!==motion||!frames.length)return;
+      shell.classList.add("fox-frame-engine");
+      let index=0;
+      showAnimationFrame(frames[index]);
+      if(frames.length>1){
+        const fps=bound(Number(animationMeta.states[state].fps)||6,1,24);
+        animationTimer=setInterval(()=>{
+          if(motionState!==motion){stopFrameAnimation();return;}
+          index=(index+1)%frames.length;showAnimationFrame(frames[index]);
+        },Math.round(1000/fps));
+      }
+    }catch{
+      shell.classList.remove("fox-frame-engine");
+    }
+  }
   function motionFromRuntime(state){
     if(["reasoning","verifying","linking"].includes(state))return "thinking";
     if(["researching","studying","memorizing"].includes(state))return "reading";
@@ -74,9 +161,23 @@
     shell.dataset.motionState=state;
     const label=el("foxMotionState");
     if(label)label.textContent=motionNames[state]||motionNames.idle;
+    playAnimationState(state);
     if(motionTimer)clearTimeout(motionTimer);
     motionTimer=null;
     if(temporary>0)motionTimer=setTimeout(()=>setMotionState(motionFromRuntime(runtimeState)),temporary);
+  }
+  function noteInteraction(){
+    lastInteractionAt=Date.now();
+    if(motionState==="sleep")setMotionState(motionFromRuntime(runtimeState));
+  }
+  function startSleepWatch(){
+    if(sleepWatchTimer)clearInterval(sleepWatchTimer);
+    sleepWatchTimer=setInterval(()=>{
+      const canSleep=settings.enabled&&runtimeState==="ready"&&
+        ["stationary","event"].includes(settings.behavior)&&menu.hidden&&!drag;
+      if(canSleep&&Date.now()-lastInteractionAt>90000&&motionState==="idle")
+        setMotionState("sleep");
+    },15000);
   }
   function setRuntimeState(state){
     runtimeState=state||"ready";
@@ -279,9 +380,11 @@
       }
     }catch{}
     position();
+    await updateImage();
+    await loadAnimationMeta();
     setMotionState("idle");
     scheduleBehavior();
-    await updateImage();
+    startSleepWatch();
     // Quiet state explicitly controls scripted greetings, not real warning events.
     el("foxAppearanceStatus").textContent="Образ хранится локально. Правый клик по Саюри открывает отдельное окно настроек.";
   }
@@ -325,6 +428,7 @@
     settings.enabled=true;
     position();
     await updateImage();
+    playAnimationState(motionState);
     await saveSettings();
   }
   async function chooseBehavior(behavior){
@@ -409,8 +513,10 @@
     }
   });
   document.addEventListener("pointerdown",e=>{
+    noteInteraction();
     if(!menu.hidden && !menu.contains(e.target) && !avatar.contains(e.target))closeMenu();
   });
+  document.addEventListener("keydown",noteInteraction,{passive:true});
   el("foxPanelClose").onclick=()=>panel.hidden=true;
   // Long press 650ms; cancel on drag over 12px.
   avatar.addEventListener("pointerdown",e=>{
@@ -509,6 +615,27 @@
     await saveSettings();
   });
   el("foxPickPack").addEventListener("click",()=>el("foxPackUpload").click());
+  el("foxPickAnimationPack").addEventListener("click",()=>el("foxAnimationPackUpload").click());
+  el("foxAnimationPackUpload").addEventListener("change",async e=>{
+    const pack=e.target.files[0];if(!pack)return;
+    el("foxAnimationPackName").textContent=pack.name;
+    el("foxAnimationSummary").textContent="Проверяю и устанавливаю покадровые анимации…";
+    const body=new FormData();body.append("pack",pack);
+    try{
+      const response=await fetch("/api/companion/animation-pack",{
+        method:"POST",headers:authHeaders(),body});
+      if(!response.ok)throw Error((await response.json()).detail||"HTTP "+response.status);
+      clearAnimationCache();
+      animationMeta=await response.json();
+      await loadAnimationMeta();
+      playAnimationState(motionState);
+      el("foxAnimationSummary").textContent=
+        "Animation Engine готов: "+Object.entries(animationMeta.states||{})
+          .map(([state,info])=>state+" · "+info.frames+" кадр.").join("  ");
+    }catch(error){
+      el("foxAnimationSummary").textContent="Пакет анимаций не установлен: "+error.message;
+    }finally{e.target.value="";}
+  });
   el("foxResetPosition").addEventListener("click",async()=>{
     settings.x=null;settings.y=null;settings.scale=1;settings.enabled=true;
     position();await saveSettings();
@@ -536,6 +663,8 @@
     clearBehaviorTimers();
     if(autoMoveTimer)clearTimeout(autoMoveTimer);
     if(motionTimer)clearTimeout(motionTimer);
+    if(sleepWatchTimer)clearInterval(sleepWatchTimer);
+    clearAnimationCache();
     if(lastObjectUrl)URL.revokeObjectURL(lastObjectUrl);
     if(portraitObjectUrl)URL.revokeObjectURL(portraitObjectUrl);
   });
