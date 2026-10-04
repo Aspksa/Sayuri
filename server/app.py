@@ -270,7 +270,8 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         owned_chat(c,u,cid)
         kind=c.execute("SELECT kind FROM chats WHERE id=?",(cid,)).fetchone()["kind"]
         hist=[dict(r) for r in c.execute("SELECT role,text FROM messages WHERE chat_id=? ORDER BY created DESC,rowid DESC LIMIT 24",(cid,))]
-        memories=context_memories(c,user_id=u,now=stamp(),project_id=project_id,limit=24)
+        memories=[] if kind=="teacher" else context_memories(
+            c,user_id=u,now=stamp(),project_id=project_id,limit=24)
     context=system_prompt()
     persona_data=load_persona()
     with db() as c:
@@ -359,7 +360,9 @@ def update_memory(mid:str,body:MemoryUpdate,authorization: str | None = Header(N
         for key,column in mapping.items():
             if key in patch:
                 value=patch[key]
-                if key=="text":value=value.strip()
+                if key=="text":
+                    value=value.strip()
+                    if not value:raise HTTPException(400,"Память не может быть пустой")
                 if key=="project_id":value=next_project
                 fields.append(column+"=?");params.append(value)
         if next_scope!="temporary":
