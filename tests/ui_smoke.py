@@ -60,6 +60,12 @@ def run():
                         assert page.locator("#foxPortraitUpload").count()==1,width
                         assert page.locator("#foxFullUpload").count()==1,width
                         assert page.locator("#foxInstall").evaluate("(e)=>document.querySelector('#characterBlock').contains(e)"),width
+                        if not page.locator("#foxJumpInstall").is_visible():
+                            print("BEYOND_DIAG",width,page.locator("#foxJumpInstall").evaluate(
+                                "(e)=>({parent:e.parentElement?.outerHTML.slice(0,250),rect:e.getBoundingClientRect().toJSON(),css:getComputedStyle(e).display,view:e.closest('.view')?.id})"))
+                            folder=ROOT/"ui-previews"
+                            folder.mkdir(exist_ok=True)
+                            page.screenshot(path=str(folder/("beyond-debug-"+str(width)+".png")))
                         assert page.locator("#foxJumpInstall").is_visible(),width
                         assert page.locator("#foxPickPack").is_visible(),width
                         assert page.locator("#foxPickPack").inner_text().startswith("↑ Выбрать ZIP"),width
