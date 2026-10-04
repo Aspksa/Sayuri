@@ -202,7 +202,8 @@ def run():
                         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),width
                         page.locator("#driveNewFolder").click()
                         assert page.locator("#newFolderDialog").is_visible(),width
-                        folder_name="UI Test "+str(width)
+                        suffix=page.evaluate("Date.now().toString().slice(-7)")
+                        folder_name="UI Test "+str(width)+" "+suffix
                         page.locator("#newFolderName").fill(folder_name)
                         page.locator("#newFolderSubmit").click()
                         page.wait_for_function("""name => Array.from(document.querySelectorAll('#driveFiles .drive-file-name'))
@@ -234,7 +235,7 @@ def run():
                         page.wait_for_function("""name => Array.from(document.querySelectorAll('#driveFiles .drive-file-name'))
                           .some(node => node.textContent === name)""",arg=renamed)
                         assert renamed in page.locator("#documentsPinned").inner_text(),width
-                        target_name="Move Target "+str(width)
+                        target_name="Move Target "+str(width)+" "+suffix
                         page.locator("#driveNewFolder").click()
                         page.locator("#newFolderName").fill(target_name)
                         page.locator("#newFolderSubmit").click()
@@ -244,8 +245,11 @@ def run():
                         renamed_card.locator("button[aria-label^='Действия:']").click()
                         page.locator("[data-doc-action='move']").click()
                         assert page.locator("#moveItemDialog").is_visible(),width
-                        page.locator("#moveItemDestination").select_option(label="Мои файлы / "+target_name)
-                        page.locator("#moveItemSubmit").click()
+                        assert page.locator("#moveItemDestination option").filter(has_text=target_name).count()==1,width
+                        page.locator("#moveItemCancel").click()
+                        renamed_card=page.locator("#driveFiles .drive-file").filter(has_text=renamed).first
+                        target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
+                        renamed_card.drag_to(target_card)
                         page.wait_for_function("name => !Array.from(document.querySelectorAll('#driveFiles .drive-file-name')).some(node => node.textContent === name)",arg=renamed)
                         target_card=page.locator("#driveFiles .drive-file").filter(has_text=target_name).first
                         target_card.locator("button").filter(has_text="Открыть").click()
