@@ -160,7 +160,7 @@
     panel.style.transform="translate("+dx+"px,"+dy+"px)";
   }
   function navigate(viewId){
-    const button=el(({chat:"showChat",account:"showAccount",files:"showFiles",
+    const button=el(({chat:"showChat",account:"showAccount",beyond:"showBeyond",files:"showFiles",
       work:"showWork",home:"showHome"})[viewId]);
     if(button)button.click();
     if(document.body.classList.contains("open")) el("menu")?.click();
@@ -212,7 +212,7 @@
     },
     tasks:()=>statusInfo(),
     profile:()=>navigate("account"),
-    appearance:()=>{navigate("account");el("foxInstall")?.scrollIntoView({block:"start",behavior:"smooth"});el("foxPackUpload")?.focus();},
+    appearance:()=>{navigate("beyond");el("foxInstall")?.scrollIntoView({block:"start",behavior:"smooth"});el("foxPickPack")?.focus();},
     quiet:async()=>{settings.quiet=!settings.quiet;fallbackDimensions();
       if(settings.quiet){panel.hidden=true;if("speechSynthesis" in window)speechSynthesis.cancel();}
       await saveSettings();},
