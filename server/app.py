@@ -12,7 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
 from server import runtime
-from server.drive import drive_root, drive_path, list_folder, search_files, DriveError, MAX_UPLOAD_BYTES
+from server.drive import drive_root, drive_path, list_folder, search_files, list_folders, DriveError, MAX_UPLOAD_BYTES
 from server.paths import prepare_project_root, prepare_data_dir, ensure_project_folders
 from dotenv import set_key
 
@@ -747,6 +747,10 @@ class DriveRename(BaseModel):
     path: str
     new_name: str = Field(min_length=1,max_length=150)
 
+class DriveMove(BaseModel):
+    path: str
+    destination: str = ""
+
 def managed_root() -> Path:
     try:
         return drive_root(PROJECT_ROOT)
@@ -772,6 +776,13 @@ def drive_search(q: str="",authorization: str | None=Header(None)):
     with runtime.operation("researching","Поиск по локальным документам"):
         result=search_files(managed_root(),q)
     return {"items":result}
+
+@app.get("/api/drive/folders")
+def drive_folders(authorization: str | None=Header(None)):
+    auth(authorization)
+    root=managed_root()
+    try:return {"folders":list_folders(root)}
+    except (DriveError,OSError) as exc:raise HTTPException(404,"Папки недоступны") from exc
 
 @app.post("/api/drive/folder")
 def drive_folder(body:DriveFolder,authorization: str | None=Header(None)):
@@ -845,6 +856,24 @@ def drive_rename(body:DriveRename,authorization:str | None=Header(None)):
     try:source.rename(dest)
     except OSError as exc:raise HTTPException(500,"Переименование не удалось") from exc
     return {"path":dest.relative_to(root).as_posix()}
+
+@app.post("/api/drive/move")
+def drive_move(body:DriveMove,authorization:str | None=Header(None)):
+    auth(authorization)
+    root=managed_root()
+    source=target_or_error(root,body.path,False)
+    destination=target_or_error(root,body.destination)
+    if not source.exists():raise HTTPException(404,"Объект не найден")
+    if not destination.is_dir():raise HTTPException(404,"Папка назначения не найдена")
+    if source.parent==destination:
+        return {"path":source.relative_to(root).as_posix(),"moved":False}
+    if source.is_dir() and (destination==source or destination.is_relative_to(source)):
+        raise HTTPException(400,"Нельзя переместить папку внутрь самой себя")
+    target=destination/source.name
+    if target.exists():raise HTTPException(409,"В папке назначения уже есть объект с таким именем")
+    try:source.rename(target)
+    except OSError as exc:raise HTTPException(500,"Перемещение не удалось") from exc
+    return {"path":target.relative_to(root).as_posix(),"moved":True}
 
 @app.get("/api/development/summary")
 def development_summary(authorization:str | None=Header(None)):
