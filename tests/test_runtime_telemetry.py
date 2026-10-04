@@ -65,8 +65,8 @@ def test_sse_is_correctly_framed_and_never_exposes_key(monkeypatch):
             finally:
                 await iterator.aclose()
         frame=asyncio.run(first_sse())
-        assert frame.startswith("event: runtime_status\\ndata: ")
-        assert frame.endswith("\\n\\n")
+        assert frame.startswith("event: runtime_status\ndata: ")
+        assert frame.endswith("\n\n")
         body=json.loads(frame.split("data: ",1)[1])
         assert body["event"]=="runtime_status"
         assert authorization not in frame
