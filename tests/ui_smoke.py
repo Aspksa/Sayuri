@@ -117,7 +117,6 @@ def run():
                             changed=fox.bounding_box()
                             assert changed["x"]>=0 and changed["y"]>=0,(width,changed)
                             assert changed["x"]+changed["width"]<=width+1,changed
-                            page.locator("#foxModeFloating").click() if width==1440 else None
                         assert not errors,(width,errors)
                         context.close()
                     print("Browser UI PASS: 360, 390, 768, 1024, 1440; focus, drawer, collapse, footer")
