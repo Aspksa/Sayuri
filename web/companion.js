@@ -881,7 +881,7 @@
     return shown;
   }
   async function checkInitiative(trigger="periodic",projectOverride=null){
-    if(!usable()||!initialized||!settings.enabled||settings.quiet||document.hidden)return false;
+    if(!usable()||!initialized||!settings.enabled||settings.quiet||document.hidden||!menu.hidden)return false;
     const now=Date.now();
     if(trigger==="periodic"&&now-lastInitiativeCheckAt<8*60*1000)return false;
     if(activeInitiative&&!panel.hidden)return false;
