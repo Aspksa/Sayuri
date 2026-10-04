@@ -1,15 +1,17 @@
 """Offline tests: teacher never learns without the owner's approval."""
 import json
 import os
+import uuid
 from fastapi.testclient import TestClient
 import server.app as sayuri
 
 def test_teacher_requires_review(monkeypatch):
     monkeypatch.setenv("CLOUD_RU_TEACHER_MODEL", "teacher-test-model")
+    unique_fact="Пользователь предпочитает короткие ответы для теста "+uuid.uuid4().hex
     async def fake_cloud(messages, model_override=None):
         assert model_override == "teacher-test-model"
         assert messages[0]["role"] == "system"
-        return json.dumps({"facts":["Пользователь предпочитает короткие ответы."]})
+        return json.dumps({"facts":[unique_fact]})
     monkeypatch.setattr(sayuri, "cloud_chat", fake_cloud)
     with TestClient(sayuri.app) as client:
         client.post("/api/auth/setup", json={"password":"correct-horse-1234"})
