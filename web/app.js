@@ -9,7 +9,16 @@ async function messages(){const box=$('#messages');box.replaceChildren();if(!act
 async function newChat(){try{const c=await api('/chats','POST',{title:'Новый чат'});active=c.id;await refresh();view('chat')}catch(e){fail(e)}}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Саюри отвечает…';try{if(!active){const c=await api('/chats','POST',{title:'Новый чат'});active=c.id}await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
 async function account(){loadPreferences();drawCandidates();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
-async function files(){await projectRoot();try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){const div=document.createElement('p');div.textContent='📎 '+f.name;box.append(div)}}catch(e){fail(e)}}
+async function files(){await projectRoot();try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
+  const row=document.createElement('div');row.className='line';
+  const name=document.createElement('span');name.textContent='📎 '+f.name;
+  const del=document.createElement('button');del.textContent='Удалить';
+  del.onclick=async()=>{
+    if(!confirm('Удалить этот файл из Sayuri?'))return;
+    try{await api('/documents/'+f.id,'DELETE');await files()}catch(e){fail(e)}
+  };
+  row.append(name,del);box.append(row)
+}}catch(e){fail(e)}}
 
 async function projectRoot(){
   const target=$('#projects');if(!target)return;target.replaceChildren();
