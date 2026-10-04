@@ -7,10 +7,11 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
+from server.paths import data_root
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
-DATA = Path(os.getenv("SAYURI_DATA_DIR") or ROOT / "data").expanduser().resolve()
+DATA = data_root(ROOT)
 
 def main():
     database=DATA / "sayuri.sqlite3"
