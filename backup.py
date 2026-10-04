@@ -11,14 +11,14 @@ from server.paths import data_root
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
-DATA = data_root(ROOT)
 
-def main():
-    database=DATA / "sayuri.sqlite3"
+def main(repo_root: Path | None = None):
+    data = data_root(repo_root or ROOT)
+    database=data / "sayuri.sqlite3"
     if not database.is_file():
         print("Sayuri: база данных ещё не создана")
         return 1
-    dest=DATA / "backups"
+    dest=data / "backups"
     dest.mkdir(parents=True,exist_ok=True)
     stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output=dest / ("sayuri-backup-"+stamp+".zip")
@@ -34,7 +34,7 @@ def main():
             source.close()
         with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
             archive.write(snapshot,"sayuri.sqlite3")
-            uploads=DATA/"uploads"
+            uploads=data/"uploads"
             if uploads.exists():
                 for f in uploads.rglob("*"):
                     if f.is_file() and not f.is_symlink():
