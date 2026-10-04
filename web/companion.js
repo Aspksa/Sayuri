@@ -361,6 +361,9 @@
     }
     updateSpatialStatus();
   }
+  function firstVisible(...nodes){
+    return nodes.flat().find(node=>elementVisible(node))||null;
+  }
   function normalizedContextType(type){
     if(["file","document"].includes(type))return "document";
     if(["project","folder"].includes(type))return "project";
@@ -385,14 +388,21 @@
       (detail?.type?.startsWith("task_")?"task":
        detail?.type==="notification_shown"?"notification":"context"));
     const fallback={
-      document:()=>el("driveFiles")||el("files"),
-      project:()=>detail?.module==="work"?el("workBrowser"):
-        detail?.module==="home"?el("homeBrowser"):el("driveFiles"),
-      task:()=>el("profileActivity")||el("sayuriStatusDetails"),
-      notification:()=>document.querySelector(".prepared-update:not([hidden])")||el("updateStatus"),
-      context:()=>document.querySelector(".view.active .settings,.view.active")
+      document:()=>firstVisible(el("driveFiles"),el("files"),
+        document.querySelector(".view.active .settings"),document.querySelector(".view.active")),
+      project:()=>firstVisible(
+        detail?.module==="work"?el("workBrowser"):null,
+        detail?.module==="home"?el("homeBrowser"):null,
+        el("driveFiles"),document.querySelector(".view.active .settings"),document.querySelector(".view.active")),
+      task:()=>firstVisible(el("profileActivity"),el("sayuriStatusDetails"),
+        document.querySelector(".view.active .section-heading"),
+        document.querySelector(".view.active .settings"),document.querySelector(".view.active")),
+      notification:()=>firstVisible(document.querySelector(".prepared-update:not([hidden])"),
+        el("updateStatus"),document.querySelector(".view.active .settings"),document.querySelector(".view.active")),
+      context:()=>firstVisible(document.querySelector(".view.active .settings"),
+        document.querySelector(".view.active"))
     }[kind]?.();
-    return fallback&&elementVisible(fallback)?{node:fallback,exact:false}:null;
+    return fallback?{node:fallback,exact:false}:null;
   }
   function contextReactionCopy(detail,exact){
     const kind=normalizedContextType(detail?.entity_type||
