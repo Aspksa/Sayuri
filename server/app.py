@@ -55,6 +55,15 @@ with db() as c:
     CREATE TABLE IF NOT EXISTS memories (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, scope TEXT NOT NULL, text TEXT NOT NULL, source TEXT, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT NOT NULL, rating INTEGER NOT NULL, correction TEXT, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, created INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS drive_folder_meta (
+        user_id TEXT NOT NULL,
+        path TEXT NOT NULL,
+        icon TEXT NOT NULL DEFAULT 'folder',
+        color TEXT NOT NULL DEFAULT 'violet',
+        description TEXT NOT NULL DEFAULT '',
+        updated INTEGER NOT NULL,
+        PRIMARY KEY (user_id,path)
+    );
     """)
 with db() as c:
     columns={r["name"] for r in c.execute("PRAGMA table_info(chats)")}
@@ -751,6 +760,12 @@ class DriveMove(BaseModel):
     path: str
     destination: str = ""
 
+class DriveFolderMeta(BaseModel):
+    path: str
+    icon: str = Field(default="folder", pattern="^(folder|book|project|archive|research|personal|star)$")
+    color: str = Field(default="violet", pattern="^(violet|rose|blue|cyan|green|amber|slate)$")
+    description: str = Field(default="", max_length=240)
+
 
 def managed_root() -> Path:
     try:
@@ -764,11 +779,48 @@ def target_or_error(root: Path, relative: str, allow_root: bool=True) -> Path:
     except DriveError as exc:
         raise HTTPException(400,str(exc)) from exc
 
+
+def drive_meta_map(user_id: str) -> dict[str,dict]:
+    with db() as c:
+        rows=c.execute(
+            "SELECT path,icon,color,description,updated FROM drive_folder_meta WHERE user_id=?",
+            (user_id,)).fetchall()
+    return {row["path"]:dict(row) for row in rows}
+
+def drive_meta_value(user_id: str, path: str) -> dict:
+    return drive_meta_map(user_id).get(path,{
+        "path":path,"icon":"folder","color":"violet","description":"","updated":0})
+
+def update_drive_meta_prefix(user_id: str, old_path: str, new_path: str | None):
+    with db() as c:
+        rows=c.execute(
+            "SELECT path,icon,color,description,updated FROM drive_folder_meta WHERE user_id=?",
+            (user_id,)).fetchall()
+        affected=[row for row in rows if row["path"]==old_path or row["path"].startswith(old_path+"/")]
+        for row in affected:
+            c.execute("DELETE FROM drive_folder_meta WHERE user_id=? AND path=?",(user_id,row["path"]))
+            if new_path is None:
+                continue
+            suffix=row["path"][len(old_path):]
+            c.execute(
+                """INSERT OR REPLACE INTO drive_folder_meta
+                   (user_id,path,icon,color,description,updated) VALUES (?,?,?,?,?,?)""",
+                (user_id,new_path+suffix,row["icon"],row["color"],row["description"],stamp()))
+
 @app.get("/api/drive/list")
 def drive_list(path: str="",authorization: str | None=Header(None)):
-    auth(authorization)
+    user=auth(authorization)
     root=managed_root()
-    try:return {"root":str(root),**list_folder(root,path)}
+    try:
+        result=list_folder(root,path)
+        meta=drive_meta_map(user)
+        for item in result["items"]:
+            if item["is_dir"]:
+                item["folder_meta"]=meta.get(item["path"],{
+                    "path":item["path"],"icon":"folder","color":"violet","description":"","updated":0})
+        result["current_meta"]=meta.get(path,{
+            "path":path,"icon":"folder","color":"violet","description":"","updated":0})
+        return {"root":str(root),**result}
     except (DriveError,OSError) as exc:raise HTTPException(404,"Каталог недоступен") from exc
 
 @app.get("/api/drive/search")
@@ -784,6 +836,31 @@ def drive_folders(authorization: str | None=Header(None)):
     root=managed_root()
     try:return {"folders":list_folders(root)}
     except (DriveError,OSError) as exc:raise HTTPException(404,"Папки недоступны") from exc
+
+@app.get("/api/drive/folder-meta")
+def drive_folder_meta(path: str,authorization: str | None=Header(None)):
+    user=auth(authorization)
+    root=managed_root()
+    target=target_or_error(root,path,False)
+    if not target.is_dir():raise HTTPException(404,"Папка не найдена")
+    return drive_meta_value(user,path)
+
+@app.put("/api/drive/folder-meta")
+def save_drive_folder_meta(body:DriveFolderMeta,authorization: str | None=Header(None)):
+    user=auth(authorization)
+    root=managed_root()
+    target=target_or_error(root,body.path,False)
+    if not target.is_dir():raise HTTPException(404,"Папка не найдена")
+    description=body.description.strip()
+    with db() as c:
+        c.execute(
+            """INSERT INTO drive_folder_meta (user_id,path,icon,color,description,updated)
+               VALUES (?,?,?,?,?,?)
+               ON CONFLICT(user_id,path) DO UPDATE SET
+                 icon=excluded.icon,color=excluded.color,
+                 description=excluded.description,updated=excluded.updated""",
+            (user,body.path,body.icon,body.color,description,stamp()))
+    return drive_meta_value(user,body.path)
 
 
 @app.post("/api/drive/folder")
@@ -836,32 +913,37 @@ def drive_download(path:str,authorization:str | None=Header(None)):
 
 @app.delete("/api/drive/item")
 def drive_delete(path:str,authorization:str | None=Header(None)):
-    auth(authorization)
+    user=auth(authorization)
     target=target_or_error(managed_root(),path,False)
     if not target.exists():raise HTTPException(404,"Файл не найден")
+    was_dir=target.is_dir()
     # Directory deletion is only allowed for empty folders; no recursive data loss.
     try:
-        if target.is_dir():target.rmdir()
+        if was_dir:target.rmdir()
         elif target.is_file():target.unlink()
         else:raise HTTPException(403,"Недопустимый тип файла")
     except OSError as exc:raise HTTPException(409,"Папка должна быть пустой") from exc
+    if was_dir:update_drive_meta_prefix(user,path,None)
     return {"ok":True}
 
 @app.post("/api/drive/rename")
 def drive_rename(body:DriveRename,authorization:str | None=Header(None)):
-    auth(authorization)
+    user=auth(authorization)
     root=managed_root()
     source=target_or_error(root,body.path,False)
     if not source.exists():raise HTTPException(404,"Объект не найден")
+    was_dir=source.is_dir()
     dest=target_or_error(root,(source.parent.relative_to(root)/body.new_name).as_posix(),False)
     if dest.exists():raise HTTPException(409,"Имя уже занято")
     try:source.rename(dest)
     except OSError as exc:raise HTTPException(500,"Переименование не удалось") from exc
-    return {"path":dest.relative_to(root).as_posix()}
+    new_path=dest.relative_to(root).as_posix()
+    if was_dir:update_drive_meta_prefix(user,body.path,new_path)
+    return {"path":new_path}
 
 @app.post("/api/drive/move")
 def drive_move(body:DriveMove,authorization:str | None=Header(None)):
-    auth(authorization)
+    user=auth(authorization)
     root=managed_root()
     source=target_or_error(root,body.path,False)
     destination=target_or_error(root,body.destination)
@@ -869,13 +951,16 @@ def drive_move(body:DriveMove,authorization:str | None=Header(None)):
     if not destination.is_dir():raise HTTPException(404,"Папка назначения не найдена")
     if source.parent==destination:
         return {"path":source.relative_to(root).as_posix(),"moved":False}
-    if source.is_dir() and (destination==source or destination.is_relative_to(source)):
+    was_dir=source.is_dir()
+    if was_dir and (destination==source or destination.is_relative_to(source)):
         raise HTTPException(400,"Нельзя переместить папку внутрь самой себя")
     target=destination/source.name
     if target.exists():raise HTTPException(409,"В папке назначения уже есть объект с таким именем")
     try:source.rename(target)
     except OSError as exc:raise HTTPException(500,"Перемещение не удалось") from exc
-    return {"path":target.relative_to(root).as_posix(),"moved":True}
+    new_path=target.relative_to(root).as_posix()
+    if was_dir:update_drive_meta_prefix(user,body.path,new_path)
+    return {"path":new_path,"moved":True}
 
 
 
