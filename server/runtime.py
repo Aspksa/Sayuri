@@ -26,6 +26,7 @@ _CLOUD_NEXT=0.0
 _NET_PROBING=False
 _CLOUD_PROBING=False
 _FINISHED_AT=0.0
+_FAILED_AT=0.0
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
@@ -38,7 +39,7 @@ def event(state:str,description:str="",task_id:str|None=None):
 @contextmanager
 def operation(state:str,description:str=""):
     task_id=uuid4().hex
-    global _FINISHED_AT
+    global _FINISHED_AT,_FAILED_AT
     with _LOCK:
         _JOBS[task_id]={"state":state,"description":description[:100],"started":monotonic()}
     event(state,description,task_id)
@@ -47,6 +48,7 @@ def operation(state:str,description:str=""):
     except BaseException:
         with _LOCK:
             _JOBS.pop(task_id,None)
+        with _LOCK:_FAILED_AT=monotonic()
         event("attention","Операция завершилась с ошибкой",task_id)
         raise
     else:
@@ -101,8 +103,7 @@ def status_snapshot(*,cloud_configured:bool,model:str|None=None):
             state=next((x for x in order if any(j["state"]==x for j in jobs)),
                        jobs[0]["state"])
             description=next((j["description"] for j in jobs if j["state"]==state),"")
-        elif _EVENTS and _EVENTS[0]["state"]=="attention" and (
-                monotonic()-_FINISHED_AT>15):
+        elif _FAILED_AT and monotonic()-_FAILED_AT<12 and _FAILED_AT>=_FINISHED_AT:
             state="attention"
             description="Последняя задача завершилась ошибкой"
         elif _FINISHED_AT and monotonic()-_FINISHED_AT<6:
