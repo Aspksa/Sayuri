@@ -35,8 +35,12 @@ def test_project_folder_browsing_and_traversal(tmp_path,monkeypatch):
         h={"Authorization":"Bearer "+login.json()["token"]}
         project=client.get("/api/projects",headers=h)
         assert project.status_code==200
-        assert all(item["available"] for item in project.json()["categories"])
+        categories=project.json()["categories"]
+        assert all(item["available"] for item in categories)
+        assert next(item for item in categories if item["id"]=="work")["memory_project_id"]=="work:__root__"
+        assert next(item for item in categories if item["id"]=="home")["memory_project_id"]=="home:__root__"
         work=client.get("/api/projects/work/list",headers=h)
+        assert work.json()["memory_project_id"]=="work:__root__"
         assert any(x["name"]=="note.txt" for x in work.json()["items"])
         response=client.get("/api/projects/home/file",params={"path":"ideas.txt"},headers=h)
         assert response.status_code==200
