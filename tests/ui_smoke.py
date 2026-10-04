@@ -48,6 +48,11 @@ def run():
                         assert page.locator("head style").count()==0,width
                         page.wait_for_function("Array.from(document.styleSheets).some(s => s.href && s.href.includes('theme.css'))")
                         assert page.locator("#accountView").is_visible(),width
+                        assert page.locator("#accountUiVersion").inner_text()=="4.0",width
+                        if width in (390,1440):
+                            folder=ROOT/"ui-previews"
+                            folder.mkdir(exist_ok=True)
+                            page.locator("#accountView").screenshot(path=str(folder/("account-"+str(width)+".png")))
                         page.locator("#accountOpenBeyond").click()
                         installer=page.locator("#foxInstall")
                         assert installer.is_visible(),("Installer hidden",width)
@@ -61,7 +66,7 @@ def run():
                         page.locator("#foxResetPosition").click()
                         reset_fox=page.locator("#foxAvatar").bounding_box()
                         assert reset_fox and reset_fox["x"] > width/2,(width,reset_fox)
-                        assert page.get_by_text("Интерфейс 3.2 · загрузка образа").is_visible(),width
+                        assert page.locator("#beyondView").is_visible(),width
                         page.locator("#foxJumpInstall").click()
                         assert page.evaluate("document.activeElement.id")=="foxPackUpload",width
                         assert page.locator("#foxInstall").is_visible(),width
@@ -77,7 +82,7 @@ def run():
                         if width in (390,1440):
                             snapshot=ROOT/"ui-previews"/("account-"+str(width)+".png")
                             snapshot.parent.mkdir(exist_ok=True)
-                            page.locator("#accountView").screenshot(path=str(snapshot))
+                            page.locator("#beyondView").screenshot(path=str(snapshot))
                             if width==1440:
                                 page.screenshot(path=str(ROOT/"ui-previews"/"desktop-overview.png"))
                         
