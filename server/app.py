@@ -103,8 +103,8 @@ async def runtime_events(request: Request,authorization: str | None=Header(None)
         # This connection carries status metadata only, never messages or documents.
         while not await request.is_disconnected():
             await runtime.refresh_probes(**_runtime_credentials())
-            yield "event: runtime_status\\ndata: "+json.dumps(
-                _runtime_snapshot(),ensure_ascii=False)+"\\n\\n"
+            yield "event: runtime_status\ndata: "+json.dumps(
+                _runtime_snapshot(),ensure_ascii=False)+"\n\n"
             await asyncio.sleep(20)
     return StreamingResponse(stream(),media_type="text/event-stream",
         headers={"Cache-Control":"no-store","X-Accel-Buffering":"no"})
