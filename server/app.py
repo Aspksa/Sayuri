@@ -215,3 +215,45 @@ def persona(authorization: str | None=Header(None)):
     auth(authorization)
     with open(PERSONA,encoding="utf-8") as f:p=json.load(f)
     return {"name":p["identity"]["display_name_ru"],"version":p["persona_version"],"modes":[m["name"] for m in p["modes"]]}
+
+
+# Owner-granted read-only project explorer.
+PROJECT_ROOT = Path(os.getenv("SAYURI_PROJECTS_DIR", "")).expanduser().resolve() if os.getenv("SAYURI_PROJECTS_DIR") else None
+PROJECT_SCOPES = {"work":"Рабочие проекты","home":"Домашние проекты"}
+def project_base(category: str):
+    if category not in PROJECT_SCOPES: raise HTTPException(404,"Неизвестный проект")
+    if PROJECT_ROOT is None: raise HTTPException(503,"Настройте SAYURI_PROJECTS_DIR в .env")
+    base=(PROJECT_ROOT/PROJECT_SCOPES[category]).resolve()
+    if not base.is_relative_to(PROJECT_ROOT) or not base.is_dir():
+        raise HTTPException(404,"Папка не существует")
+    return base
+def project_target(category: str, relative: str):
+    base=project_base(category)
+    target=(base/relative).resolve()
+    if not target.is_relative_to(base) or any(part.startswith(".") for part in Path(relative).parts):
+        raise HTTPException(403,"Нет доступа к этому пути")
+    return target
+@app.get("/api/projects")
+def projects(authorization: str | None = Header(None)):
+    auth(authorization)
+    return {"root_configured":PROJECT_ROOT is not None,
+            "categories":[{"id":key,"name":value,"available":PROJECT_ROOT is not None and (PROJECT_ROOT/value).is_dir()}
+                          for key,value in PROJECT_SCOPES.items()]}
+@app.get("/api/projects/{category}/list")
+def project_list(category: str, path: str = "", authorization: str | None = Header(None)):
+    auth(authorization)
+    target=project_target(category,path)
+    if not target.is_dir(): raise HTTPException(404,"Каталог не найден")
+    items=[]
+    for child in sorted(target.iterdir(),key=lambda p:(not p.is_dir(),p.name.lower())):
+        if child.name.startswith(".") or child.is_symlink():continue
+        items.append({"name":child.name,"is_dir":child.is_dir(),"relative":str(child.relative_to(project_base(category))).replace("\\","/")})
+        if len(items)>=200:break
+    return {"path":path,"items":items}
+@app.get("/api/projects/{category}/file")
+def project_file(category: str,path: str, authorization: str | None=Header(None)):
+    auth(authorization)
+    target=project_target(category,path)
+    if not target.is_file() or target.is_symlink():raise HTTPException(404,"Файл не найден")
+    if target.stat().st_size>20*1024*1024:raise HTTPException(413,"Файл слишком большой")
+    return FileResponse(target,filename=target.name,media_type="application/octet-stream")
