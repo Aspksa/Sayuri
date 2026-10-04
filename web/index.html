@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=3.0.0"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sayuri</title><meta name="theme-color" content="#11121b"><link rel="manifest" href="/static/manifest.webmanifest"><link rel="stylesheet" href="/static/theme.css?v=3.0.0"><link rel="stylesheet" href="/static/companion.css?v=1"></head><body><svg aria-hidden="true" class="sprite" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ico-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
 <symbol id="ico-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
 <symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M20 16.6A5 5 0 0 0 17.5 7a7 7 0 0 0-13.2 2.3A4.5 4.5 0 0 0 7.5 18H19a3 3 0 0 0 1-5.7"/></symbol>
@@ -67,7 +67,18 @@
   </div>
 </div>
 <div class="account-quicknav"><button type="button" data-jump="characterBlock">01 · Характер</button><button type="button" data-jump="skillBlock">02 · Навыки</button><button type="button" data-jump="experienceBlock">03 · Опыт</button><button type="button" data-jump="libraryBlock">04 · Библиотека</button><button type="button" data-jump="historyBlock">05 · Развитие</button><button type="button" data-jump="cloudSetup">06 · Cloud.ru</button></div>
-<section id="characterBlock"><h3>01. Живой характер Саюри</h3><p class="hint">Естественные приветствия, плавные движения, мягкий юмор и контекстные реакции. Голос включается только по запросу.</p></section>
+<section id="characterBlock"><h3>01. Живой характер Саюри</h3><div class="fox-appearance">
+  <h3>Образ Саюри</h3>
+  <p class="hint">Добавьте два PNG: портрет и фигуру в полный рост. Изображения сохраняются только на этом компьютере в личных данных, не в GitHub.</p>
+  <div class="fox-upload-grid">
+    <label>Портрет (PNG)<input id="foxPortraitUpload" type="file" accept="image/png"></label>
+    <label>Полный рост (PNG)<input id="foxFullUpload" type="file" accept="image/png"></label>
+  </div>
+  <p><button id="foxModeCompact" type="button">Компактный</button>
+  <button id="foxModeFloating" type="button">Полный рост</button>
+  <button id="foxModeExpanded" type="button">С пояснением</button></p>
+  <p id="foxAppearanceStatus" class="hint" role="status">Внешность можно изменить в любое время.</p>
+</div><p class="hint">Естественные приветствия, плавные движения, мягкий юмор и контекстные реакции. Голос включается только по запросу.</p></section>
 <section id="skillBlock"><h3>02. Навыки и компетенции</h3><div id="skillSummary" class="metric-grid"></div><p class="hint">Отображаются измеримые показатели и доступные механизмы, не выдуманные проценты успешности.</p></section>
 <section id="experienceBlock"><h3>03. Опыт и дневник</h3><div id="experienceSummary" class="metric-grid"></div><div id="experienceJournal" class="journal"></div></section>
 <section id="libraryBlock"><h3>04. Библиотека знаний</h3><p class="hint">Подтверждённые записи памяти, учебный материал персонажа и принятые выводы наставника. Непроверенные сведения не становятся фактами автоматически.</p><input type="search" id="knowledgeSearch" placeholder="Поиск в библиотеке" aria-label="Поиск знаний"><div id="knowledgeLibrary" class="journal"></div></section>
@@ -95,4 +106,33 @@
 <div id="driveBreadcrumbs" class="drive-breadcrumbs"></div><div id="driveInfo" class="hint"></div><div id="driveFiles" class="drive-grid"></div>
 <div class="drive-heading"><h3>Добавленные в библиотеку документы</h3><p class="hint">Ранее загруженные файлы Sayuri показаны отдельно.</p></div>
 <form id="fileForm" class="line"><input type="file" id="file" required><button type="submit">Добавить документ</button></form><div id="files" class="journal"></div>
-</div></section></main></div><script defer src="/static/app.js?v=3.0.0"></script><script defer src="/static/sidebar.js?v=3.0.0"></script></body></html>
+</div></section></main></div>
+<!-- Global, owner-controlled Sayuri: survives navigation between SPA views. -->
+<div id="foxShell" class="fox-shell" aria-label="Саюри: постоянная помощница">
+  <div id="foxPanel" class="fox-panel" hidden role="status" aria-live="polite">
+    <div class="fox-panel-head"><strong>Саюри рядом</strong><button id="foxPanelClose" type="button" aria-label="Закрыть подсказку">×</button></div>
+    <p id="foxPanelMessage">Ожидаю вашего обращения.</p>
+  </div>
+  <button id="foxAvatar" class="fox-avatar" type="button"
+    aria-label="Саюри: нажмите для приветствия, дважды для чата, правой кнопкой для меню"
+    title="Саюри — правый клик для действий">
+    <img id="foxAvatarImage" src="/static/assets/avatar.webp" alt="Саюри Kitsune">
+    <span id="foxStatus" class="fox-status" aria-hidden="true"></span>
+  </button>
+  <div id="foxContextMenu" class="fox-context-menu" hidden role="menu" aria-label="Действия Саюри">
+    <div class="fox-menu-heading">Саюри · действия</div>
+    <button role="menuitem" data-fox-action="chat">✦ Поговорить</button>
+    <button role="menuitem" data-fox-action="voice">♫ Голосовое приветствие</button>
+    <button role="menuitem" data-fox-action="activity">◉ Что ты делаешь?</button>
+    <button role="menuitem" data-fox-action="context">◎ Что ты видишь?</button>
+    <button role="menuitem" data-fox-action="study">▤ Изучить текущий материал</button>
+    <button role="menuitem" data-fox-action="tasks">☷ Мои поручения</button>
+    <div class="fox-menu-rule"></div>
+    <button role="menuitem" data-fox-action="profile">♡ Личный кабинет</button>
+    <button role="menuitem" data-fox-action="appearance">✿ Внешность и поведение</button>
+    <button role="menuitem" data-fox-action="quiet" aria-pressed="false">☾ Тихий режим</button>
+    <button role="menuitem" data-fox-action="minimize">◇ Свернуть / развернуть</button>
+    <button role="menuitem" data-fox-action="reset">↺ Вернуть положение</button>
+  </div>
+</div>
+<script defer src="/static/app.js?v=3.0.0"></script><script defer src="/static/sidebar.js?v=3.0.0"></script><script defer src="/static/companion.js?v=1"></script></body></html>
