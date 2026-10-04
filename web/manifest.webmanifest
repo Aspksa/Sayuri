@@ -1,0 +1,19 @@
+{
+  "name": "Sayuri — личная ИИ-помощница",
+  "short_name": "Sayuri",
+  "description": "Личный чат Саюри",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#10131f",
+  "theme_color": "#b99be6",
+  "icons": [
+    {
+      "src": "/static/assets/avatar.webp",
+      "sizes": "any",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}
