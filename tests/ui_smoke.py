@@ -96,11 +96,19 @@ def run():
                         assert page.locator("#foxAvatar").is_visible(),width
                         page.locator("#foxSettingsClose").click()
                         assert not page.locator("#foxContextMenu").is_visible(),width
-                        page.locator("#showChat").click()
-                        page.wait_for_timeout(80)
+                        page.evaluate("document.getElementById('showChat').click()")
+                        page.wait_for_timeout(120)
                         spatial_chat=page.evaluate("window.SayuriSpatial.getSnapshot()")
                         assert spatial_chat["protected"]>=2,(width,spatial_chat)
-                        page.locator("#showBeyond").click()
+                        fox_box=page.locator("#foxShell").bounding_box()
+                        compose_box=page.locator(".compose").bounding_box()
+                        assert fox_box and compose_box,(width,fox_box,compose_box)
+                        separated=(fox_box["x"]+fox_box["width"]<=compose_box["x"] or
+                                   compose_box["x"]+compose_box["width"]<=fox_box["x"] or
+                                   fox_box["y"]+fox_box["height"]<=compose_box["y"] or
+                                   compose_box["y"]+compose_box["height"]<=fox_box["y"])
+                        assert separated,(width,fox_box,compose_box)
+                        page.evaluate("document.getElementById('showBeyond').click()")
                         assert page.locator(".advanced-settings").count()==1,width
                         assert not page.locator(".advanced-settings").evaluate("(e)=>e.open"),width
                         bg=page.evaluate("getComputedStyle(document.documentElement).backgroundColor")
