@@ -268,7 +268,7 @@ def documents(authorization: str | None=Header(None)):
 @app.get("/api/persona")
 def persona(authorization: str | None=Header(None)):
     auth(authorization)
-    with open(PERSONA,encoding="utf-8") as f:p=json.load(f)
+    p=load_persona()
     return {"name":p["identity"]["display_name_ru"],"version":p["persona_version"],"modes":[m["name"] for m in p["modes"]]}
 
 
