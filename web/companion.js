@@ -327,8 +327,12 @@
       const result=await fetch("/api/companion/pack",{
         method:"POST",headers:authHeaders(),body:form});
       if(!result.ok)throw Error((await result.json()).detail||"HTTP "+result.status);
-      el("foxAppearanceStatus").textContent="Портрет и полный образ Саюри установлены.";
+      settings.mode="floating";
+      settings.enabled=true;
+      position();
       await updateImage();
+      await saveSettings();
+      el("foxAppearanceStatus").textContent="Саюри появилась на экране в полный рост. Положение и размер можно менять.";
     }catch(error){
       el("foxAppearanceStatus").textContent="Комплект не установлен: "+error.message;
     }finally{e.target.value="";}
