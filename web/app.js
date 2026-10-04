@@ -370,7 +370,7 @@ function renderFolderHierarchy(steps,directItems,searching=false){
  const addNode=(title,path,{active=false,child=false,depth=0}={})=>{
   const button=document.createElement('button');
   button.type='button';button.className='documents-folder-node'+(active?' active':'')+(child?' child':'');
-  button.style.setProperty('--folder-depth',String(Math.min(depth,6)));
+  button.style.setProperty('--folder-indent',(8+Math.min(depth,6)*8)+'px');
   const icon=document.createElement('span');icon.textContent=active?'▾':'▸';
   const text=document.createElement('span');text.textContent=title;
   button.append(icon,text);
