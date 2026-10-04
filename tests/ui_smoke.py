@@ -55,6 +55,11 @@ def run():
                         assert page.locator("#foxFullUpload").count()==1,width
                         assert page.locator("#foxInstall").evaluate("(e)=>document.querySelector('#characterBlock').contains(e)"),width
                         assert page.locator("#foxJumpInstall").is_visible(),width
+                        assert page.locator("#foxPickPack").is_visible(),width
+                        assert page.locator("#foxPickPack").inner_text().startswith("↑ Выбрать ZIP"),width
+                        page.locator("#foxResetPosition").click()
+                        reset_fox=page.locator("#foxAvatar").bounding_box()
+                        assert reset_fox and reset_fox["x"] > width/2,(width,reset_fox)
                         assert page.get_by_text("Интерфейс 3.2 · загрузка образа").is_visible(),width
                         page.locator("#foxJumpInstall").click()
                         assert page.evaluate("document.activeElement.id")=="foxPackUpload",width
