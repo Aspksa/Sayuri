@@ -95,6 +95,7 @@ for(const [id,button] of Object.entries(navIds)){
 markNav('account');
 el('sayuriSidebar').querySelectorAll('.diagnostic').forEach(details=>{
  details.addEventListener('toggle',()=>{
+  details.querySelector('summary').setAttribute('aria-expanded',String(details.open));
   if(details.open&&document.body.classList.contains('sidebar-collapsed')&&!narrow()){
    document.body.classList.remove('sidebar-collapsed');
    el('collapseSidebar').setAttribute('aria-expanded','true');
