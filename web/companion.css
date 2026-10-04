@@ -1,0 +1,66 @@
+/* BEYOND 2.0: intentionally independent of the existing page layout. */
+.fox-shell{--fox-scale:1;position:fixed;left:auto;top:auto;right:20px;bottom:98px;
+ width:98px;height:98px;z-index:35;pointer-events:none;
+ touch-action:none;user-select:none;-webkit-user-select:none}
+.fox-shell[hidden],.fox-shell[hidden] *{display:none!important}
+.fox-avatar{pointer-events:auto;position:absolute;inset:0;width:100%;height:100%;
+ display:flex;align-items:center;justify-content:center;padding:0;cursor:grab;
+ border:1px solid #b88facbd;border-radius:25px;background:linear-gradient(145deg,#60455d,#282337);
+ box-shadow:0 12px 28px #0008,0 0 0 4px #c09bc217;overflow:hidden;
+ transform:scale(var(--fox-scale));transform-origin:center}
+.fox-avatar:active{cursor:grabbing}
+.fox-avatar:focus-visible,.fox-context-menu button:focus-visible,
+.fox-panel button:focus-visible{outline:2px solid #97bfff;outline-offset:3px}
+.fox-avatar>img{height:100%;width:100%;object-fit:cover;pointer-events:none}
+.fox-status{position:absolute;bottom:6px;right:7px;width:10px;height:10px;
+ border:2px solid #2a2237;border-radius:50%;background:#9695ab}
+.fox-status[data-state="ready"],.fox-status[data-state="completed"]{background:#70dba0}
+.fox-status[data-state="reasoning"],.fox-status[data-state="studying"]{background:#dca5f4}
+.fox-status[data-state="attention"],.fox-status[data-state="disconnected"]{background:#f28b96}
+.fox-shell[data-mode="floating"],.fox-shell[data-mode="expanded"]{width:215px;height:285px}
+.fox-shell[data-mode="floating"] .fox-avatar,.fox-shell[data-mode="expanded"] .fox-avatar{
+ border:0;background:transparent;box-shadow:none;border-radius:12px;overflow:visible}
+.fox-shell[data-mode="floating"] .fox-avatar>img,
+.fox-shell[data-mode="expanded"] .fox-avatar>img{object-fit:contain;filter:drop-shadow(0 11px 13px #0009)}
+.fox-shell[data-mode="floating"] .fox-status,.fox-shell[data-mode="expanded"] .fox-status{
+ bottom:20px;right:35px}
+.fox-panel{position:absolute;bottom:calc(100% + 12px);right:0;max-width:min(280px,calc(100vw - 24px));
+ width:255px;background:#242033;color:#fce9f5;border:1px solid #93618c;
+ padding:13px 14px;border-radius:14px;box-shadow:0 15px 45px #0009;pointer-events:auto;
+ overflow-wrap:anywhere}
+.fox-panel[hidden],.fox-context-menu[hidden]{display:none!important}
+.fox-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fox-panel-head strong{font-size:13px}
+.fox-panel-head button{width:34px;height:34px;padding:4px;background:transparent;color:#eeb9d7}
+.fox-panel p{margin:5px 0 0;font-size:12px;color:#e2d0e2;line-height:1.5}
+.fox-context-menu{position:fixed;inset:auto;width:270px;max-height:78vh;max-height:78dvh;
+ overflow-y:auto;overscroll-behavior:contain;z-index:50;pointer-events:auto;
+ background:#242033;border:1px solid #93618c;border-radius:15px;padding:8px;
+ color:#fce9f5;box-shadow:0 15px 50px #000b;scrollbar-width:thin}
+.fox-menu-heading{padding:7px 9px 9px;font-size:12px;color:#efb5d4;font-weight:700}
+.fox-context-menu button{display:block;width:100%;min-height:44px;padding:10px 11px;
+ border:0;border-radius:9px;text-align:left;background:transparent;color:inherit;
+ font-size:13px;font-weight:450}
+.fox-context-menu button:hover:not(:disabled),
+.fox-context-menu button:focus-visible{background:#45344f}
+.fox-context-menu button:disabled{opacity:.48}
+.fox-menu-rule{margin:8px 4px;border-top:1px solid #93618c5e}
+.fox-upload-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+ gap:11px;margin:10px 0}
+.fox-upload-grid label{display:block}
+.fox-upload-grid input{margin-top:7px}
+.fox-appearance{padding:14px 16px;background:#242237;border:1px solid #4e4058;border-radius:12px;
+ margin:13px 0}
+.fox-appearance button{min-height:44px;margin:3px}
+body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
+@media(max-width:767px){
+ .fox-shell{width:75px;height:75px;right:12px;bottom:84px;z-index:50}
+ .fox-shell[data-mode="floating"],.fox-shell[data-mode="expanded"]{width:95px;height:135px}
+ .fox-panel{width:min(235px,calc(100vw - 24px))}
+ .fox-context-menu{width:min(270px,calc(100vw - 16px));max-height:70dvh}
+ .fox-shell[data-mode="floating"] .fox-status,.fox-shell[data-mode="expanded"] .fox-status{
+  bottom:3px;right:8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .fox-avatar,.fox-context-menu,.fox-panel{animation:none!important;transition:none!important}
+}

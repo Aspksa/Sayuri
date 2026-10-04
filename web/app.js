@@ -1,7 +1,8 @@
 const $=s=>document.querySelector(s);let token=sessionStorage.getItem('sayuri_token')||'',chats=[],active=null,busy=false;
 async function api(path,method='GET',data=null){const opts={method,headers:{}};if(token)opts.headers.Authorization='Bearer '+token;if(data!==null){if(data instanceof FormData)opts.body=data;else{opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}}const r=await fetch('/api'+path,opts);let result;try{result=await r.json()}catch{result={}}if(!r.ok){const message=Array.isArray(result.detail)?result.detail.map(x=>x.msg||x.type).join('; '):result.detail;throw Error(message||'Ошибка '+r.status)}return result}
 function fail(e){$('#error').textContent=e.message||String(e)}
-function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=({account:'Личный кабинет Sayuri',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Саюри · общий чат'})[id]||'Sayuri';if(id==='account')account();if(id==='files'){files();loadDrive()}if(id==='work'||id==='home')showProject(id)}
+function view(id){for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');$('#title').textContent=({account:'Личный кабинет Sayuri',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Саюри · общий чат'})[id]||'Sayuri';if(id==='account')account();if(id==='files'){files();loadDrive()}if(id==='work'||id==='home')showProject(id);
+window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'route_changed',module:id}}))}
 async function refresh(){
   chats=await api('/chats');
   // Preserve existing records, but only the one mentor conversation is visible.
@@ -63,6 +64,7 @@ async function showProject(category,relative=''){
   }catch(e){const warning=document.createElement('p');warning.textContent=e.message;target.append(warning)}
 }
 async function projectDownload(category,path,name){
+  window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:category,entity_type:'file',entity_id:name}}));
   try{
     const url='/api/projects/'+category+'/file?path='+encodeURIComponent(path);
     const res=await fetch(url,{headers:{Authorization:'Bearer '+token}});
@@ -112,7 +114,7 @@ $('#showUpdates').onclick=()=>view('updates');$('#showChat').onclick=()=>view('c
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
 
 $('#memoryForm').onsubmit=async e=>{e.preventDefault();try{await api('/memory','POST',{text:$('#fact').value});$('#fact').value='';account()}catch(x){fail(x)}};
-$('#fileForm').onsubmit=async e=>{e.preventDefault();const f=$('#file').files[0];if(!f)return;const form=new FormData();form.append('file',f);try{await api('/documents','POST',form);$('#file').value='';files()}catch(x){fail(x)}};
+$('#fileForm').onsubmit=async e=>{e.preventDefault();const f=$('#file').files[0];if(!f)return;const form=new FormData();form.append('file',f);try{await api('/documents','POST',form);window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_uploaded',module:'files',entity_type:'document',entity_id:f.name}}));$('#file').value='';files()}catch(x){fail(x)}};
 async function bootstrapLocal() {
   $('#cloud').textContent='Подключение локальной сессии…';
   try {
@@ -346,6 +348,7 @@ async function loadDrive(relative=driveCurrent){
  }catch(e){info.textContent='Хранилище недоступно: '+e.message}
 }
 async function driveDownload(path,name){
+ window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_opened',module:'files',entity_type:'file',entity_id:name}}));
  try{
   const res=await fetch('/api/drive/download?path='+encodeURIComponent(path),{headers:{Authorization:'Bearer '+token}});
   if(!res.ok)throw Error('Ошибка загрузки '+res.status);
@@ -365,7 +368,9 @@ $('#driveFileInput').onchange=async()=>{
  $('#driveInfo').textContent='Загрузка '+files.length+' файлов…';
  for(const file of files){
   const payload=new FormData();payload.append('file',file);payload.append('path',driveCurrent);
-  try{await api('/drive/upload','POST',payload)}catch(e){alert(file.name+': '+e.message)}
+  try{await api('/drive/upload','POST',payload);
+   window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_uploaded',module:'files',entity_type:'file',entity_id:file.name}}));
+  }catch(e){alert(file.name+': '+e.message)}
  }
  input.value='';await loadDrive();
 };

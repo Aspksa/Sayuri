@@ -135,6 +135,9 @@ function render(payload){
  if(!Number.isFinite(eventTime)||Math.abs(Date.now()-eventTime)>65_000){stale();return}
  last=Date.now();lastPayload=payload;
  const s=payload.sayuri||{},n=payload.network||{},c=payload.cloud_ru||{};
+ window.dispatchEvent(new CustomEvent('sayuri:runtime',{
+  detail:{state:s.state,active_jobs:s.active_jobs,description:s.description||''}
+ }));
  const state=validStates.has(s.state)?s.state:'disconnected';
  const label=labels[state];
  el('profileActivity').textContent=label;
