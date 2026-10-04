@@ -10,12 +10,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
+from server.persona import load_persona
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.getenv("SAYURI_DATA_DIR", str(ROOT / "data"))).resolve()
 DATA.mkdir(parents=True, exist_ok=True)
 DB = DATA / "sayuri.sqlite3"
-PERSONA = ROOT / "config" / "persona" / "SAYURI_PERSONA_RU_v1.0.0.json"
 WEB = ROOT / "web"
 app = FastAPI(title="Sayuri", version="0.1.0")
 allowed_hosts=["127.0.0.1", "localhost", "testserver"] if os.getenv("SAYURI_LOCAL_ACCESS","1")=="1" else [h.strip() for h in os.getenv("SAYURI_ALLOWED_HOSTS","127.0.0.1,localhost").split(",") if h.strip()]
@@ -160,7 +160,7 @@ def delete_chat(cid:str, authorization: str | None = Header(None)):
     return {"ok":True}
 
 def system_prompt():
-    with open(PERSONA,encoding="utf-8") as f: p=json.load(f)
+    p=load_persona()
     return p["prompt_templates"]["system_prompt_ru"]
 async def cloud_chat(messages, model_override=None):
     key=os.getenv("CLOUD_RU_API_KEY","")
@@ -192,7 +192,7 @@ async def send(cid:str, body:MessageIn, background_tasks: BackgroundTasks, autho
         hist=[dict(r) for r in c.execute("SELECT role,text FROM messages WHERE chat_id=? ORDER BY created DESC,rowid DESC LIMIT 24",(cid,))]
         memories=[r["text"] for r in c.execute("SELECT text FROM memories WHERE user_id=? AND scope='personal' ORDER BY created DESC LIMIT 12",(u,))]
     context=system_prompt()
-    with open(PERSONA,encoding="utf-8") as f: persona_data=json.load(f)
+    persona_data=load_persona()
     with db() as c:
         pref=c.execute("SELECT mode,intimacy FROM preferences WHERE user_id=?",(u,)).fetchone()
     if pref:
