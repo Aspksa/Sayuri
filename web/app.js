@@ -3,10 +3,10 @@ async function api(path,method='GET',data=null){const opts={method,headers:{}};i
 function fail(e){$('#error').textContent=e.message||String(e)}
 function view(id){
   for(const x of document.querySelectorAll('.view'))x.classList.toggle('active',x.id===id+'View');
-  $('#title').textContent=({account:'Личный кабинет Sayuri',beyond:'SAYURI BEYOND',files:'Документы / Облако / Sayuri',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Единый чат'})[id]||'Sayuri';
+  $('#title').textContent=({account:'Личный кабинет Sayuri',beyond:'SAYURI BEYOND',files:'Документы',work:'Рабочие проекты',home:'Домашние проекты',updates:'Обновление проекта',chat:'Единый чат'})[id]||'Sayuri';
   if(id==='account')account();
   if(id==='updates')loadBuildInfo();
-  if(id==='files'){files();loadDrive()}
+  if(id==='files'){files();loadDrive();requestAnimationFrame(()=>setDocumentsViewMode(localStorage.getItem('sayuri_documents_view')||'grid'))}
   if(id==='work'||id==='home')showProject(id);
   window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'route_changed',module:id}}));
 }
@@ -131,6 +131,19 @@ $('#accountOpenUpdates').onclick=()=>view('updates');
 $('#updatesBackCabinet').onclick=()=>view('account');
 $('#beyondBackAccount').onclick=()=>view('account');
 $('#showUpdates').onclick=()=>view('updates');$('#showChat').onclick=()=>view('chat');$('#showWork').onclick=()=>view('work');$('#showHome').onclick=()=>view('home');$('#showAccount').onclick=()=>view('account');$('#showFiles').onclick=()=>view('files');
+function setDocumentsViewMode(mode){
+  const normalized=mode==='list'?'list':'grid';
+  const grid=$('#driveFiles');
+  if(grid)grid.classList.toggle('drive-list-mode',normalized==='list');
+  $('#docsGridView')?.setAttribute('aria-pressed',String(normalized==='grid'));
+  $('#docsListView')?.setAttribute('aria-pressed',String(normalized==='list'));
+  localStorage.setItem('sayuri_documents_view',normalized);
+}
+$('#docsGridView').onclick=()=>setDocumentsViewMode('grid');
+$('#docsListView').onclick=()=>setDocumentsViewMode('list');
+$('#docsOpenWork').onclick=()=>view('work');
+$('#docsOpenHome').onclick=()=>view('home');
+$('#docsOpenLibrary').onclick=()=>$('#documentsLibrary').scrollIntoView({behavior:'smooth',block:'start'});
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
 
 $('#memoryForm').onsubmit=async e=>{e.preventDefault();try{await api('/memory','POST',{text:$('#fact').value});$('#fact').value='';account()}catch(x){fail(x)}};
@@ -327,6 +340,8 @@ function driveCard(name,kind,primary,rename,remove,context=null){
  }
  const icon=document.createElement('div');icon.className='drive-file-icon';icon.textContent=kind==='folder'?'📁':kind==='shortcut'?'✦':'📄';
  const title=document.createElement('div');title.className='drive-file-name';title.textContent=name;
+ const meta=document.createElement('div');meta.className='drive-file-meta';
+ meta.textContent=kind==='folder'?'Папка':kind==='shortcut'?'Быстрый доступ':'Файл';
  const actions=document.createElement('div');actions.className='drive-file-actions';
  const open=document.createElement('button');open.textContent=kind==='folder'||kind==='shortcut'?'Открыть':'Скачать';open.onclick=primary;
  actions.append(open);
@@ -336,7 +351,7 @@ function driveCard(name,kind,primary,rename,remove,context=null){
  if(remove){
   const del=document.createElement('button');del.textContent='×';del.title='Удалить';del.onclick=remove;actions.append(del);
  }
- card.append(icon,title,actions);return card;
+ card.append(icon,title,meta,actions);return card;
 }
 async function loadDrive(relative=driveCurrent){
  const output=$('#driveFiles'),crumbs=$('#driveBreadcrumbs'),info=$('#driveInfo');
@@ -355,6 +370,8 @@ async function loadDrive(relative=driveCurrent){
   const search=$('#driveSearch').value.trim();
   const items=search?(await api('/drive/search?q='+encodeURIComponent(search))).items:res.items;
   info.textContent=search?'Результаты поиска · '+items.length:'Расположение: '+res.root+' · '+items.length+' объектов';
+  const count=$('#documentsObjectCount');
+  if(count)count.textContent=items.length+' '+(items.length===1?'объект':'объектов');
   if(!relative && !search){
    output.append(driveCard('Рабочие проекты','shortcut',()=>{
     window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'project_opened',module:'work',entity_type:'project',entity_id:'work'}}));
