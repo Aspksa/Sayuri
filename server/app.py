@@ -5,12 +5,13 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
-from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from server.persona import load_persona
+from server.drive import drive_root, drive_path, list_folder, search_files, DriveError, MAX_UPLOAD_BYTES
 from server.paths import prepare_project_root, prepare_data_dir, ensure_project_folders
 from dotenv import set_key
 
@@ -672,3 +673,128 @@ def github_update_apply(body:UpdateConfirmation,request: Request,authorization: 
         return apply_update(ROOT)
     except UpdateError as exc:
         raise HTTPException(409,str(exc)) from exc
+
+# A managed folder within Documents/Облако/Sayuri, isolated from SQLite and .env.
+class DriveFolder(BaseModel):
+    parent: str = ""
+    name: str = Field(min_length=1,max_length=150)
+
+class DriveRename(BaseModel):
+    path: str
+    new_name: str = Field(min_length=1,max_length=150)
+
+def managed_root() -> Path:
+    try:
+        return drive_root(PROJECT_ROOT)
+    except (OSError,DriveError) as exc:
+        raise HTTPException(503,"Локальное хранилище недоступно") from exc
+
+def target_or_error(root: Path, relative: str, allow_root: bool=True) -> Path:
+    try:
+        return drive_path(root,relative,allow_root=allow_root)
+    except DriveError as exc:
+        raise HTTPException(400,str(exc)) from exc
+
+@app.get("/api/drive/list")
+def drive_list(path: str="",authorization: str | None=Header(None)):
+    auth(authorization)
+    root=managed_root()
+    try:return {"root":str(root),**list_folder(root,path)}
+    except (DriveError,OSError) as exc:raise HTTPException(404,"Каталог недоступен") from exc
+
+@app.get("/api/drive/search")
+def drive_search(q: str="",authorization: str | None=Header(None)):
+    auth(authorization)
+    return {"items":search_files(managed_root(),q)}
+
+@app.post("/api/drive/folder")
+def drive_folder(body:DriveFolder,authorization: str | None=Header(None)):
+    auth(authorization)
+    root=managed_root()
+    parent=target_or_error(root,body.parent)
+    if not parent.is_dir():raise HTTPException(404,"Родительская папка не найдена")
+    child=target_or_error(root,(body.parent+"/" if body.parent else "")+body.name,False)
+    if child.exists():raise HTTPException(409,"Имя уже занято")
+    try:child.mkdir()
+    except OSError as exc:raise HTTPException(500,"Не удалось создать папку") from exc
+    return {"path":child.relative_to(root).as_posix()}
+
+@app.post("/api/drive/upload")
+async def drive_upload(file:UploadFile=File(...),path:str=Form(""),
+                       authorization:str | None=Header(None)):
+    auth(authorization)
+    root=managed_root()
+    folder=target_or_error(root,path)
+    if not folder.is_dir():raise HTTPException(404,"Папка не найдена")
+    name=Path(file.filename or "").name
+    # Check original file name too; avoid silently normalizing unsafe paths.
+    if not name or name!=(file.filename or ""):
+        raise HTTPException(400,"Недопустимое имя файла")
+    target=target_or_error(root,(path+"/" if path else "")+name,False)
+    if target.exists():raise HTTPException(409,"Такой файл уже существует")
+    # Exclusive creation prevents overwriting another upload.
+    try:
+        with target.open("xb") as out:
+            total=0
+            while True:
+                chunk=await file.read(1024*1024)
+                if not chunk:break
+                total+=len(chunk)
+                if total>MAX_UPLOAD_BYTES:raise HTTPException(413,"Файл больше 25 МБ")
+                out.write(chunk)
+    except FileExistsError:raise HTTPException(409,"Такой файл уже существует")
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    return {"name":name,"path":target.relative_to(root).as_posix(),"size":total}
+
+@app.get("/api/drive/download")
+def drive_download(path:str,authorization:str | None=Header(None)):
+    auth(authorization)
+    target=target_or_error(managed_root(),path,False)
+    if not target.is_file() or target.is_symlink():raise HTTPException(404,"Файл не найден")
+    return FileResponse(target,media_type="application/octet-stream",filename=target.name)
+
+@app.delete("/api/drive/item")
+def drive_delete(path:str,authorization:str | None=Header(None)):
+    auth(authorization)
+    target=target_or_error(managed_root(),path,False)
+    if not target.exists():raise HTTPException(404,"Файл не найден")
+    # Directory deletion is only allowed for empty folders; no recursive data loss.
+    try:
+        if target.is_dir():target.rmdir()
+        elif target.is_file():target.unlink()
+        else:raise HTTPException(403,"Недопустимый тип файла")
+    except OSError as exc:raise HTTPException(409,"Папка должна быть пустой") from exc
+    return {"ok":True}
+
+@app.post("/api/drive/rename")
+def drive_rename(body:DriveRename,authorization:str | None=Header(None)):
+    auth(authorization)
+    root=managed_root()
+    source=target_or_error(root,body.path,False)
+    if not source.exists():raise HTTPException(404,"Объект не найден")
+    dest=target_or_error(root,(source.parent.relative_to(root)/body.new_name).as_posix(),False)
+    if dest.exists():raise HTTPException(409,"Имя уже занято")
+    try:source.rename(dest)
+    except OSError as exc:raise HTTPException(500,"Переименование не удалось") from exc
+    return {"path":dest.relative_to(root).as_posix()}
+
+@app.get("/api/development/summary")
+def development_summary(authorization:str | None=Header(None)):
+    owner=auth(authorization)
+    with db() as c:
+        counts={}
+        for table in ("chats","memories","feedback","documents","memory_candidates"):
+            counts[table]=c.execute("SELECT COUNT(*) FROM "+table+" WHERE user_id=?",(owner,)).fetchone()[0]
+        counts["messages"]=c.execute(
+            "SELECT COUNT(*) FROM messages m JOIN chats c ON m.chat_id=c.id WHERE c.user_id=?",
+            (owner,)).fetchone()[0]
+        events=[]
+        for table,kind in (("memories","Подтверждённая память"),("feedback","Оценка ответа"),("documents","Документ")):
+            events.extend({"kind":kind,"at":r["created"]} for r in c.execute(
+                "SELECT created FROM "+table+" WHERE user_id=? ORDER BY created DESC LIMIT 15",(owner,)))
+        events.extend({"kind":"Разговор с наставником","at":r["created"]} for r in c.execute(
+            "SELECT created FROM chats WHERE user_id=? ORDER BY created DESC LIMIT 15",(owner,)))
+    return {"counts":counts,"history":sorted(events,key=lambda x:x["at"],reverse=True)[:24],
+            "assessment":"Проверочные задания не запускались; оценка навыков в процентах отсутствует"}
