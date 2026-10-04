@@ -28,6 +28,7 @@ async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').
 async function account(){loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
 async function files(){try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
   const row=document.createElement('div');row.className='line';
+  row.dataset.sayuriEntityType='document';row.dataset.sayuriEntityId=f.name;row.dataset.sayuriModule='files';
   const name=document.createElement('span');name.textContent='📎 '+f.name;
   const del=document.createElement('button');del.textContent='Удалить';
   del.onclick=async()=>{
@@ -64,7 +65,14 @@ async function showProject(category,relative=''){
       const btn=document.createElement('button');
       btn.style.display='block';btn.style.textAlign='left';btn.style.margin='7px 0';btn.style.width='100%';
       btn.textContent=(item.is_dir?'📁 ':'📄 ')+item.name;
-      if(item.is_dir)btn.onclick=()=>showProject(category,item.relative);
+      btn.dataset.sayuriEntityType=item.is_dir?'project':'file';
+      btn.dataset.sayuriEntityId=item.relative;
+      btn.dataset.sayuriModule=category;
+      if(item.is_dir)btn.onclick=()=>{
+        window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{
+          type:'project_opened',module:category,entity_type:'project',entity_id:item.relative}}));
+        showProject(category,item.relative);
+      };
       else btn.onclick=()=>projectDownload(category,item.relative,item.name);
       target.append(btn);
     }
@@ -310,8 +318,13 @@ async function loadDevelopment(){
  }catch(e){history.textContent='Не удалось загрузить историю развития: '+e.message}
 }
 function driveRelativeParent(path){return path.split('/').slice(0,-1).join('/')}
-function driveCard(name,kind,primary,rename,remove){
+function driveCard(name,kind,primary,rename,remove,context=null){
  const card=document.createElement('div');card.className='drive-file';
+ if(context){
+  card.dataset.sayuriEntityType=context.type;
+  card.dataset.sayuriEntityId=String(context.id);
+  card.dataset.sayuriModule=context.module||'files';
+ }
  const icon=document.createElement('div');icon.className='drive-file-icon';icon.textContent=kind==='folder'?'📁':kind==='shortcut'?'✦':'📄';
  const title=document.createElement('div');title.className='drive-file-name';title.textContent=name;
  const actions=document.createElement('div');actions.className='drive-file-actions';
@@ -343,11 +356,21 @@ async function loadDrive(relative=driveCurrent){
   const items=search?(await api('/drive/search?q='+encodeURIComponent(search))).items:res.items;
   info.textContent=search?'Результаты поиска · '+items.length:'Расположение: '+res.root+' · '+items.length+' объектов';
   if(!relative && !search){
-   output.append(driveCard('Рабочие проекты','shortcut',()=>view('work')));
-   output.append(driveCard('Домашние проекты','shortcut',()=>view('home')));
+   output.append(driveCard('Рабочие проекты','shortcut',()=>{
+    window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'project_opened',module:'work',entity_type:'project',entity_id:'work'}}));
+    view('work');
+   },null,null,{type:'project',id:'work',module:'files'}));
+   output.append(driveCard('Домашние проекты','shortcut',()=>{
+    window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'project_opened',module:'home',entity_type:'project',entity_id:'home'}}));
+    view('home');
+   },null,null,{type:'project',id:'home',module:'files'}));
   }
   for(const item of items){
-   const open=item.is_dir?()=>{ $('#driveSearch').value='';loadDrive(item.path)}:()=>driveDownload(item.path,item.name);
+   const open=item.is_dir?()=>{
+    window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{
+      type:'project_opened',module:'files',entity_type:'project',entity_id:item.path}}));
+    $('#driveSearch').value='';loadDrive(item.path)
+   }:()=>driveDownload(item.path,item.name);
    const rename=async()=>{
     const next=prompt('Новое название',item.name);if(next===null||next===item.name)return;
     try{await api('/drive/rename','POST',{path:item.path,new_name:next});await loadDrive()}catch(e){alert(e.message)}
@@ -356,7 +379,9 @@ async function loadDrive(relative=driveCurrent){
     if(!confirm('Удалить '+item.name+'? Папку можно удалить, только если она пуста.'))return;
     try{await api('/drive/item?path='+encodeURIComponent(item.path),'DELETE');await loadDrive()}catch(e){alert(e.message)}
    };
-   output.append(driveCard(item.name,item.is_dir?'folder':'file',open,rename,remove));
+   output.append(driveCard(item.name,item.is_dir?'folder':'file',open,rename,remove,{
+    type:item.is_dir?'project':'file',id:item.path,module:'files'
+   }));
   }
   if(!output.childElementCount)output.textContent='Папка пуста. Создайте папку или добавьте файлы.';
  }catch(e){info.textContent='Хранилище недоступно: '+e.message}
@@ -434,12 +459,17 @@ $('#installUpdate').onclick=async()=>{
   if(r.mode==='zip' && r.updated){
    const notice=$('#preparedUpdate');
    notice.hidden=false;
+   notice.dataset.sayuriEntityType='notification';
+   notice.dataset.sayuriEntityId='update-prepared';
+   notice.dataset.sayuriModule='updates';
    notice.replaceChildren();
    const title=document.createElement('strong');title.textContent='Новая версия скачана, но ещё НЕ запущена.';
    const path=document.createElement('div');path.className='monospace-path';path.textContent=r.new_folder||'Путь отсутствует';
    const instructions=document.createElement('p');
    instructions.textContent='Закройте старое окно Sayuri.bat, откройте папку выше и запустите Sayuri.bat из неё. Проверьте запущенную папку после перезапуска.';
    notice.append(title,path,instructions);
+   window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{
+    type:'notification_shown',module:'updates',entity_type:'notification',entity_id:'update-prepared'}}));
    $('#updateStatus').textContent='Архив подготовлен. Дизайн изменится только после запуска новой версии.';
   }else $('#updateStatus').textContent=r.updated?
    'Обновление загружено. Закройте Sayuri и перезапустите Sayuri.bat.':
