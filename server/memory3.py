@@ -96,7 +96,7 @@ def create_memory(c,*,memory_id: str,user_id: str,text: str,scope: str="personal
     c.execute("""INSERT INTO memories
         (id,user_id,scope,text,source,created,memory_type,project_id,priority,
          confidence,status,source_ref,updated,expires,last_used)
-        VALUES (?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,NULL)""",
+        VALUES (?,?,?,?,?,?,?,?,?,?,'active',?,?,?,NULL)""",
         (memory_id,user_id,scope,clean,source,created,memory_type,project_id,priority,
          confidence,source_ref,created,expires))
     return memory_id
