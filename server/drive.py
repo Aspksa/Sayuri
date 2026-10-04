@@ -83,3 +83,22 @@ def search_files(root: Path, query: str) -> list[dict]:
             if count>=2000 or len(out)>=100:break
         if count>=2000 or len(out)>=100:break
     return out
+
+def list_folders(root: Path, limit: int=500) -> list[dict]:
+    """Return safe folders for move dialogs without following links."""
+    out=[{"name":"Мои файлы","path":""}]
+    count=0
+    for directory,subdirs,_ in os.walk(root,followlinks=False):
+        base=Path(directory)
+        safe=[]
+        for name in sorted(subdirs,key=str.casefold):
+            target=base/name
+            if name.startswith(".") or target.is_symlink():
+                continue
+            safe.append(name)
+            out.append({"name":name,"path":relative_path(root,target)})
+            count+=1
+            if count>=limit:
+                return out
+        subdirs[:]=safe
+    return out
