@@ -362,6 +362,12 @@
     else position();
     await saveSettings();
   });
+  el("foxJumpInstall").addEventListener("click",()=>{
+    const target=el("foxInstall");
+    if(!target)return;
+    target.scrollIntoView({block:"center",behavior:"smooth"});
+    el("foxPackUpload")?.focus({preventScroll:true});
+  });
   for(const [id,kind] of [["foxModeCompact","compact"],
     ["foxModeFloating","floating"],["foxModeExpanded","expanded"]]){
     el(id).addEventListener("click",()=>chooseMode(kind));
