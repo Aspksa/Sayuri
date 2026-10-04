@@ -28,11 +28,32 @@ _CLOUD_PROBING=False
 _FINISHED_AT=0.0
 _FAILED_AT=0.0
 _BACKEND_LATENCY_MS=None
+_SUBSCRIBERS={}
 
 def record_backend_latency(elapsed_ms:int):
     global _BACKEND_LATENCY_MS
     with _LOCK:
         _BACKEND_LATENCY_MS=max(0,elapsed_ms)
+
+def subscribe(loop):
+    """One notification queue per authenticated SSE connection."""
+    queue=asyncio.Queue(maxsize=1)
+    token=uuid4().hex
+    with _LOCK:_SUBSCRIBERS[token]=(loop,queue)
+    return token,queue
+
+def unsubscribe(token):
+    with _LOCK:_SUBSCRIBERS.pop(token,None)
+
+def _notify():
+    with _LOCK:subscribers=list(_SUBSCRIBERS.values())
+    for loop,queue in subscribers:
+        try:
+            loop.call_soon_threadsafe(
+                lambda q=queue: q.put_nowait(True) if not q.full() else None
+            )
+        except RuntimeError:
+            pass  # A disconnected client's loop has already stopped.
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
@@ -41,6 +62,7 @@ def event(state:str,description:str="",task_id:str|None=None):
     with _LOCK:
         _EVENTS.appendleft({"ts":utc_now(),"state":state,"description":description[:100],
                             "task_id":task_id})
+    _notify()
 
 @contextmanager
 def operation(state:str,description:str=""):
@@ -91,6 +113,7 @@ def cloud_request_end(start:float,*,http_status:int|None=None,
                     if isinstance(usage.get(key),int)}
         # No imaginary prices or currency conversions.
         _CLOUD["cost_rub"]=None
+    _notify()
 
 def _classify_error(status:int|None,reason:str):
     if status in (401,403):return "auth_error"
@@ -170,6 +193,7 @@ async def _probe_network():
         with _LOCK:_NETWORK.update(state="offline",latency_ms=None,failure_reason="unreachable")
     finally:
         with _LOCK:_NET_PROBING=False
+        _notify()
 
 async def _probe_cloud(key:str,base:str,model:str):
     global _CLOUD_NEXT,_CLOUD_PROBING
@@ -214,6 +238,7 @@ async def _probe_cloud(key:str,base:str,model:str):
         with _LOCK:_CLOUD.update(state="unreachable",last_error="unreachable",last_http_status=None)
     finally:
         with _LOCK:_CLOUD_PROBING=False
+        _notify()
 
 async def refresh_probes(*,key:str,base:str,model:str):
     # Independent failures: local backend online never means the Internet is online.
