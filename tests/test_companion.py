@@ -1,6 +1,7 @@
 """BEYOND 2.0 companion: owner auth, private assets and no invented state."""
 from __future__ import annotations
 import io
+import zipfile
 import struct
 import zlib
 
@@ -76,3 +77,28 @@ def test_images_are_not_stored_in_static_or_git(tmp_path):
     assert image.parent==tmp_path/"appearance"
     assert image.name.endswith("-portrait.png")
     assert "static" not in image.parts
+
+
+def test_one_click_avatar_bundle(tmp_path,monkeypatch):
+    old=companion.image_path
+    monkeypatch.setattr(companion,"image_path",lambda root,owner,kind:tmp_path/(owner+"-"+kind+".png")
+                        if kind in companion.VALID_KINDS else old(root,owner,kind))
+    archive=io.BytesIO()
+    with zipfile.ZipFile(archive,"w") as z:
+        z.writestr("portrait.png",png())
+        z.writestr("full.png",png(300,400))
+        z.writestr("README.txt","original images")
+    with TestClient(service.app,base_url="http://127.0.0.1:8765",
+                    client=("127.0.0.1",35602)) as c:
+        assert c.post("/api/companion/pack",files={"pack":("images.zip",archive.getvalue(),"application/zip")}).status_code==401
+        h=get_headers(c)
+        res=c.post("/api/companion/pack",headers=h,
+            files={"pack":("images.zip",archive.getvalue(),"application/zip")})
+        assert res.status_code==200,res.text
+        assert c.get("/api/companion/image/full",headers=h).content==png(300,400)
+        assert c.get("/api/companion/image/portrait",headers=h).content==png()
+        bad=io.BytesIO()
+        with zipfile.ZipFile(bad,"w") as z:
+            z.writestr("../.env","secret")
+        assert c.post("/api/companion/pack",headers=h,
+            files={"pack":("bad.zip",bad.getvalue(),"application/zip")}).status_code==400
