@@ -394,3 +394,7 @@ def reject_candidate(candidate_id: str, authorization: str | None = Header(None)
         result=c.execute("UPDATE memory_candidates SET status='rejected' WHERE id=? AND user_id=? AND status='pending'",(candidate_id,u))
         if not result.rowcount: raise HTTPException(404,"Кандидат не найден")
     return {"ok":True}
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(WEB / "sw.js", media_type="text/javascript")
