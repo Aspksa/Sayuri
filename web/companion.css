@@ -123,3 +123,9 @@ body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
 @media(max-width:767px){.fox-entry-actions{width:100%;display:grid;grid-template-columns:1fr}
  #foxResetPosition,#foxJumpInstall{width:100%;max-width:none}
  .fox-pick-pack{max-width:none}}
+
+/* On the update screen the helper stays visible but cannot cover instructions. */
+@media(max-width:767px){
+  body[data-active-view="updates"] .fox-shell{width:50px;height:50px}
+  body[data-active-view="updates"] .fox-shell .fox-avatar{border-radius:14px}
+}
