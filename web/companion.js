@@ -20,7 +20,7 @@
   let lastObjectUrl = null, portraitObjectUrl=null, initialized = false, savePending = false, queuedSave=false;
   let menuPreviouslyFocused = null, drag = null, longPress = null, suppressClick = false;
   let behaviorTimer=null,returnTimer=null,autoMoveTimer=null,motionTimer=null,waypointIndex=0,lastManualMoveAt=0;
-  let runtimeState="ready",motionState="idle";
+  let runtimeState="ready",motionState="idle",personalityState="conversational";
   let animationMeta={installed:false,states:{}},animationTimer=null,animationRequest=0,activeFrameLayer=0;
   const animationCache=new Map(),animationUrls=new Set();
   let sleepWatchTimer=null,lastInteractionAt=Date.now();
@@ -201,6 +201,17 @@
       if(state==="attention")reactToContext({type:"task_failed",module:moduleName,entity_type:"task",entity_id:null});
     }
   });
+  window.addEventListener("sayuri:personality",e=>{
+    const state=e.detail?.state;
+    if(!["conversational","focused","analytical","supportive","creative","roleplay","cautious","studying"].includes(state))return;
+    personalityState=state;
+    shell.dataset.personalityState=state;
+    const motion={
+      cautious:"attention",focused:"working",analytical:"thinking",studying:"reading",
+      conversational:"idle",supportive:"idle",creative:"idle",roleplay:"idle"
+    }[state];
+    if(motion&&motionState!=="walking")setMotionState(motion,{temporary:2200});
+  });
   window.SayuriContext = Object.freeze({getCurrent:()=>({module:moduleName,selected,
     latestEvent:recentEvent})});
   window.SayuriSpatial = Object.freeze({
@@ -219,6 +230,7 @@
   window.SayuriPresence = Object.freeze({
     getSnapshot:()=>({
       mode:settings.presence,voiceImportant:settings.voice_important,
+      personalityState,
       lastPresenceAt,windowCount:presenceWindow.filter(at=>Date.now()-at<300000).length,
       sequence:presenceSequence
     }),
