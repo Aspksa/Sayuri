@@ -64,3 +64,23 @@ body.fox-quiet .fox-avatar{animation:none!important;transition:none!important}
 @media(prefers-reduced-motion:reduce){
  .fox-avatar,.fox-context-menu,.fox-panel{animation:none!important;transition:none!important}
 }
+
+/* Always-visible appearance installer directly under the account hero. */
+.fox-install-feature{margin:18px 0 20px;padding:20px 22px;border:1px solid #bd8fb9;
+ border-radius:18px;background:linear-gradient(120deg,#35243d,#232338 72%);
+ box-shadow:0 10px 30px #0000001c}
+.fox-install-title{display:flex;align-items:center;gap:13px;margin-bottom:12px}
+.fox-install-symbol{display:flex;align-items:center;justify-content:center;width:42px;height:42px;
+ flex:0 0 42px;border-radius:13px;background:#6a425f;color:#ffd9f0;font-size:26px}
+.fox-install-title strong{display:block;font-size:17px;color:#ffdfef}
+.fox-install-title p{font-size:12px;color:#d6c2d7;margin:3px 0 0}
+.fox-install-feature .fox-appearance{padding:0;border:0;background:transparent;margin:0}
+.fox-install-feature .fox-appearance>h3{display:none}
+.fox-pack-label{display:grid;gap:8px;padding:14px 15px;
+ border:1px solid #c99ed2;border-radius:13px;background:#3a2b46;color:#f9e1f4}
+.fox-pack-label strong{font-size:14px;color:#ffe2ef}
+.fox-pack-label span{font-size:12px;color:#d9c7df}
+.fox-pack-label input{padding:10px;border:1px dashed #d1afd9;background:#272038;border-radius:9px;cursor:pointer}
+.fox-install-feature .fox-upload-grid{margin-top:15px}
+.fox-install-feature #foxAppearanceStatus{padding:7px 0 0}
+@media(max-width:767px){.fox-install-feature{padding:15px;margin:12px 0 16px}.fox-pack-label{padding:12px}}
