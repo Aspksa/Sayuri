@@ -9,8 +9,14 @@ def test_direct_mentor_chat_and_observation(monkeypatch):
     calls=[]
     async def cloud(messages, model_override=None):
         calls.append((messages,model_override))
-        if "анализатор наблюдений" in messages[0]["content"]:
-            return json.dumps({"facts":["Пользователь предпочитает короткие ответы."]})
+        if "внутренний анализатор понимания Sayuri" in messages[0]["content"]:
+            return json.dumps({
+                "topic":"Стиль ответов владельцу",
+                "summary":"Владелец явно сообщил предпочтение коротких ответов.",
+                "concepts":[],"claims":[],"examples":[],"methods":[],"unclear":[],
+                "owner_facts":["Пользователь предпочитает короткие ответы."],
+                "confidence":0.98,"understood":True,"clarification_question":None
+            },ensure_ascii=False)
         return "Я наставник. Ответ принят."
     monkeypatch.setattr(sayuri,"cloud_chat",cloud)
     with TestClient(sayuri.app) as client:
