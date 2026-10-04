@@ -1,4 +1,4 @@
-const $=s=>document.querySelector(s);let token=sessionStorage.getItem('sayuri_token')||'',chats=[],active=null,busy=false;
+const $=s=>document.querySelector(s);let token=sessionStorage.getItem('sayuri_token')||'',chats=[],active=null,busy=false,activeProjectMemoryId=null,memorySearchTimer=null;
 async function api(path,method='GET',data=null){const opts={method,headers:{}};if(token)opts.headers.Authorization='Bearer '+token;if(data!==null){if(data instanceof FormData)opts.body=data;else{opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}}const r=await fetch('/api'+path,opts);let result;try{result=await r.json()}catch{result={}}if(!r.ok){const message=Array.isArray(result.detail)?result.detail.map(x=>x.msg||x.type).join('; '):result.detail;throw Error(message||'Ошибка '+r.status)}return result}
 function fail(e){$('#error').textContent=e.message||String(e)}
 function view(id){
@@ -24,8 +24,120 @@ async function refresh(){
   $('#cloud').textContent=state.mentor_configured?'Cloud.ru: проверка состояния…':'Cloud.ru: не настроено';
 }
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
-async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();await api('/chats/'+active+'/send','POST',{text});$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
-async function account(){loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();try{const [p,m,s]=await Promise.all([api('/persona'),api('/memory'),api('/learning/stats')]);$('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');$('#stats').textContent='Чаты: '+s.chats+' · Память: '+s.memories+' · Отзывы: '+s.feedback+' · Файлы: '+s.documents;const box=$('#memories');box.replaceChildren();for(const f of m){const div=document.createElement('div');div.className='line';const text=document.createElement('span');text.textContent=f.text;const b=document.createElement('button');b.textContent='Удалить';b.onclick=async()=>{await api('/memory/'+f.id,'DELETE');account()};div.append(text,b);box.append(div)}}catch(e){fail(e)}}
+async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();const payload={text};if(activeProjectMemoryId)payload.project_id=activeProjectMemoryId;await api('/chats/'+active+'/send','POST',payload);$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
+async function account(){
+ loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();loadMemory3();loadMemoryProjectOptions();
+ try{
+  const [p,stats]=await Promise.all([api('/persona'),api('/learning/stats')]);
+  $('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');
+  $('#stats').textContent='Чаты: '+stats.chats+' · Память: '+stats.memories+' · Отзывы: '+stats.feedback+' · Файлы: '+stats.documents;
+ }catch(e){fail(e)}
+}
+const memoryScopeLabels={personal:'Личная',project:'Проектная',working:'Рабочая',temporary:'Временная'};
+const memoryTypeLabels={fact:'Факт',preference:'Предпочтение',decision:'Решение',rule:'Правило',correction:'Исправление',note:'Заметка'};
+
+function syncMemoryForm(){
+ const scope=$('#memoryScope').value;
+ $('#memoryProjectField').hidden=scope!=='project';
+ $('#memoryTtlField').hidden=scope!=='temporary';
+ if(scope==='project'&&activeProjectMemoryId&&!$('#memoryProject').value)$('#memoryProject').value=activeProjectMemoryId;
+ updateMemoryActiveProject();
+}
+function updateMemoryActiveProject(){
+ const node=$('#memoryActiveProject');if(!node)return;
+ node.textContent=activeProjectMemoryId?'Активный проект: '+activeProjectMemoryId:'Активный проект: не выбран';
+ node.classList.toggle('active',Boolean(activeProjectMemoryId));
+}
+async function loadMemoryProjectOptions(){
+ const list=$('#memoryProjectList');if(!list)return;
+ try{
+  const root=await api('/projects'),ids=new Set();
+  for(const category of root.categories||[]){
+   if(category.memory_project_id)ids.add(category.memory_project_id);
+   if(!category.available)continue;
+   try{
+    const data=await api('/projects/'+category.id+'/list');
+    for(const item of data.items||[])if(item.is_dir&&item.memory_project_id)ids.add(item.memory_project_id);
+   }catch{}
+  }
+  list.replaceChildren();
+  for(const id of [...ids].sort()){
+   const option=document.createElement('option');option.value=id;list.append(option);
+  }
+ }catch{}
+}
+function memoryQuery(){
+ const params=new URLSearchParams();
+ const scope=$('#memoryScopeFilter').value,status=$('#memoryStatusFilter').value,q=$('#memorySearch').value.trim();
+ if(scope)params.set('scope',scope);
+ if(status)params.set('status',status);
+ if(q)params.set('q',q);
+ params.set('limit','250');
+ return '/memory?'+params.toString();
+}
+function memoryMetaText(item){
+ const parts=[memoryScopeLabels[item.scope]||item.scope,memoryTypeLabels[item.memory_type]||item.memory_type,'P'+item.priority];
+ if(item.project_id)parts.push(item.project_id);
+ if(item.expires){
+  const left=item.expires-Math.floor(Date.now()/1000);
+  parts.push(left>0?'истекает через '+Math.max(1,Math.ceil(left/3600))+' ч':'срок истёк');
+ }
+ if(item.source)parts.push(item.source);
+ return parts.join(' · ');
+}
+async function loadMemory3(){
+ const box=$('#memories'),summaryBox=$('#memorySummary');if(!box||!summaryBox)return;
+ try{
+  const [summary,items]=await Promise.all([api('/memory/summary'),api(memoryQuery())]);
+  summaryBox.replaceChildren();
+  const values=[
+   ['Активные',summary.active],['Личные',summary.by_scope.personal],
+   ['Проектные',summary.by_scope.project],['Рабочие',summary.by_scope.working],
+   ['Временные',summary.by_scope.temporary],['Проекты',summary.projects],['Архив',summary.archived]
+  ];
+  for(const pair of values)summaryBox.append(metric(pair[0],pair[1]));
+  box.replaceChildren();
+  if(!items.length){box.textContent='Записей с такими фильтрами нет.';return}
+  for(const item of items){
+   const card=document.createElement('article');card.className='memory3-card';
+   card.dataset.scope=item.scope;card.dataset.priority=String(item.priority);
+   const top=document.createElement('div');top.className='memory3-card-top';
+   const badges=document.createElement('div');badges.className='memory3-badges';
+   const scope=document.createElement('span');scope.textContent=memoryScopeLabels[item.scope]||item.scope;
+   const type=document.createElement('span');type.textContent=memoryTypeLabels[item.memory_type]||item.memory_type;
+   const priority=document.createElement('span');priority.textContent='P'+item.priority;
+   badges.append(scope,type,priority);
+   const confidence=document.createElement('small');confidence.textContent=Math.round((item.confidence??1)*100)+'%';
+   top.append(badges,confidence);
+   const text=document.createElement('p');text.className='memory3-card-text';text.textContent=item.text;
+   const meta=document.createElement('small');meta.className='memory3-card-meta';meta.textContent=memoryMetaText(item);
+   const actions=document.createElement('div');actions.className='memory3-card-actions';
+   if(item.status==='active'){
+    const archive=document.createElement('button');archive.type='button';archive.textContent='В архив';
+    archive.onclick=async()=>{try{await api('/memory/'+item.id+'/archive','POST');await loadMemory3();await loadDevelopment()}catch(e){fail(e)}};
+    actions.append(archive);
+   }
+   const del=document.createElement('button');del.type='button';del.textContent='Удалить';del.className='danger';
+   del.onclick=async()=>{
+    if(!confirm('Удалить эту запись памяти без возможности восстановления?'))return;
+    try{await api('/memory/'+item.id,'DELETE');await loadMemory3();await loadDevelopment()}catch(e){fail(e)}
+   };
+   actions.append(del);
+   card.append(top,text,meta,actions);box.append(card);
+  }
+ }catch(e){box.textContent='Memory 3.0 недоступна: '+e.message}
+}
+function openProjectMemory(projectId){
+ activeProjectMemoryId=projectId||activeProjectMemoryId;
+ view('account');
+ requestAnimationFrame(()=>{
+  $('#memoryScope').value='project';$('#memoryProject').value=activeProjectMemoryId||'';
+  syncMemoryForm();
+  $('#memoryBlock').scrollIntoView({behavior:'smooth',block:'start'});
+  $('#fact').focus();
+ });
+}
+
 async function files(){try{const list=await api('/documents');const box=$('#files');box.replaceChildren();for(const f of list){
   const row=document.createElement('div');row.className='line';
   row.dataset.sayuriEntityType='document';row.dataset.sayuriEntityId=f.name;row.dataset.sayuriModule='files';
@@ -57,6 +169,13 @@ async function showProject(category,relative=''){
       target.append(back);
     }
     const data=await api('/projects/'+category+'/list?path='+encodeURIComponent(relative));
+    activeProjectMemoryId=data.memory_project_id||actual.memory_project_id||null;
+    updateMemoryActiveProject();
+    const memoryBar=document.createElement('div');memoryBar.className='project-memory-bar';
+    const memoryText=document.createElement('span');memoryText.textContent='Memory 3.0 · '+(activeProjectMemoryId||'контекст не определён');
+    const memoryButton=document.createElement('button');memoryButton.type='button';memoryButton.textContent='Память проекта';
+    memoryButton.disabled=!activeProjectMemoryId;memoryButton.onclick=()=>openProjectMemory(activeProjectMemoryId);
+    memoryBar.append(memoryText,memoryButton);target.append(memoryBar);
     if(!data.items.length){
       const empty=document.createElement('p');empty.textContent='Папка пуста.';
       target.append(empty);
@@ -146,7 +265,35 @@ $('#docsOpenHome').onclick=()=>view('home');
 $('#docsOpenLibrary').onclick=()=>$('#documentsLibrary').scrollIntoView({behavior:'smooth',block:'start'});
 $('#composer').onsubmit=send;$('#draft').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#composer').requestSubmit()}};
 
-$('#memoryForm').onsubmit=async e=>{e.preventDefault();try{await api('/memory','POST',{text:$('#fact').value});$('#fact').value='';account()}catch(x){fail(x)}};
+$('#memoryScope').onchange=syncMemoryForm;
+$('#memoryScopeFilter').onchange=loadMemory3;
+$('#memoryStatusFilter').onchange=loadMemory3;
+$('#memorySearch').oninput=()=>{clearTimeout(memorySearchTimer);memorySearchTimer=setTimeout(loadMemory3,220)};
+$('#memoryForm').onsubmit=async e=>{
+ e.preventDefault();
+ const scope=$('#memoryScope').value,project=$('#memoryProject').value.trim();
+ const payload={
+  text:$('#fact').value.trim(),scope,memory_type:$('#memoryType').value,
+  priority:Number($('#memoryPriority').value),confidence:1
+ };
+ if(!payload.text)return;
+ if(scope==='project'){
+  payload.project_id=project||activeProjectMemoryId;
+  if(!payload.project_id){$('#memoryFormStatus').textContent='Выберите проект для проектной памяти.';return}
+ }
+ if(scope==='temporary'){
+  const hours=Math.max(1,Math.min(720,Number($('#memoryTtlHours').value)||24));
+  payload.ttl_minutes=Math.round(hours*60);
+ }
+ $('#memoryFormStatus').textContent='Сохраняю…';
+ try{
+  await api('/memory','POST',payload);
+  $('#fact').value='';$('#memoryFormStatus').textContent='Сохранено в Memory 3.0';
+  await loadMemory3();await loadDevelopment();
+  window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'memory_updated',module:'account',entity_type:'memory',entity_id:scope}}));
+ }catch(x){$('#memoryFormStatus').textContent=x.message}
+};
+syncMemoryForm();
 $('#fileForm').onsubmit=async e=>{e.preventDefault();const f=$('#file').files[0];if(!f)return;const form=new FormData();form.append('file',f);try{await api('/documents','POST',form);window.dispatchEvent(new CustomEvent('sayuri:context',{detail:{type:'document_uploaded',module:'files',entity_type:'document',entity_id:f.name}}));$('#file').value='';files()}catch(x){fail(x)}};
 async function bootstrapLocal() {
   $('#cloud').textContent='Подключение локальной сессии…';
@@ -315,7 +462,8 @@ async function loadDevelopment(){
    for(const m of relevant){
     const entry=document.createElement('div');entry.className='journal-entry';
     entry.textContent=m.text;
-    const small=document.createElement('small');small.textContent=(m.scope==='project'?'Проектная':'Личная')+' память · подтверждено';
+    const memoryScopeLabels={personal:'Личная',project:'Проектная',working:'Рабочая',temporary:'Временная'};
+    const small=document.createElement('small');small.textContent=(memoryScopeLabels[m.scope]||m.scope)+' память · '+(m.memory_type||'fact')+' · '+(m.source||'подтверждено');
     entry.append(small);library.append(entry);
    }
    if(!library.childElementCount)library.textContent='Совпадений нет.';
@@ -836,9 +984,14 @@ async function loadBuildInfo(){
  const info=$('#runningVersion'),folder=$('#runningFolder');
  try{
   const data=await api('/build/info');
-  info.textContent='Интерфейс '+data.ui_version+' · Личность '+data.persona_version;
+  const projectVersion=data.project_version||data.ui_version;
+  const coreVersion=data.core_version||'3.0.0',memoryVersion=data.memory_version||'3.0.0';
+  info.textContent='Проект '+projectVersion+' · Core '+coreVersion+' · Memory '+memoryVersion+' · Интерфейс '+data.ui_version;
   folder.textContent=data.running_folder;
   $('#accountUiVersion').textContent=data.ui_version;
+  $('#accountProjectVersion').textContent=projectVersion;
+  $('#accountCoreVersion').textContent=coreVersion;
+  $('#accountMemoryVersion').textContent=memoryVersion;
   $('#runningVersionNote').textContent='Этот путь принадлежит серверу, который сейчас отвечает браузеру. Если вы скачали ZIP в другую папку, дизайн здесь не изменится.';
  }catch(e){
   info.textContent='Версия сервера не определена';
