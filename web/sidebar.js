@@ -23,7 +23,8 @@ const tones={
 };
 const validStates=new Set(Object.keys(labels));
 let last=0,selected='account',currentToken='',failed=0,polling=null,
- aborter=null,reader=null,stopped=false,focusReturn=null,lastPayload=null,staleTimer=null;
+ aborter=null,reader=null,stopped=false,focusReturn=null,lastPayload=null,staleTimer=null,
+ transportState='checking';
 const narrow=()=>matchMedia('(max-width:767px)').matches;
 const nodes=()=>{
  return [...el('sayuriSidebar').querySelectorAll('button,summary,a,input,select,textarea,[tabindex]:not([tabindex="-1"])')]
@@ -172,7 +173,9 @@ function render(payload){
  addRow(netBody,'Успешно',stamp(n.last_success_at));
  addRow(netBody,'Ошибка',n.failure_reason||'Нет');
  addRow(netBody,'Цель проверки',n.probe_target||'Нет данных');
- addRow(netBody,'SSE',payload.features?.sse?'Поддерживается':'Нет данных');
+ addRow(netBody,'Соединение',transportState==='connected'?'SSE · поток активен':
+  transportState==='polling'?'REST · резервный опрос':
+  transportState==='reconnecting'?'Повторное подключение':'Проверка');
  const cstate=cloudLabels[c.state]||cloudLabels.unknown;
  el('cloudCompact').textContent=cstate;
  statusDot('cloudStatusSymbol',c.state==='connected'?'good':
@@ -208,6 +211,7 @@ async function pollOnce(){
    headers:{Authorization:'Bearer '+t},cache:'no-store'
   });
   if(!response.ok)throw Error('HTTP '+response.status);
+  transportState=transportState==='connected'?'connected':'polling';
   render(await response.json());
  }catch{if(!last||Date.now()-last>65000)stale()}
 }
@@ -231,7 +235,7 @@ async function stream(){
    const i=buffer.indexOf('\n\n'),block=buffer.slice(0,i);
    buffer=buffer.slice(i+2);
    const line=block.split('\n').find(row=>row.startsWith('data: '));
-   if(line)try{render(JSON.parse(line.slice(6)))}catch{}
+   if(line)try{transportState='connected';render(JSON.parse(line.slice(6)))}catch{}
   }
   if(buffer.length>100000)buffer='';
  }
@@ -244,6 +248,7 @@ async function connect(){
  }catch{
   if(stopped)return;
   failed++;
+  transportState='reconnecting';
   schedulePoll();
   const wait=Math.min(30000,1000*Math.pow(2,Math.min(failed,5)))+Math.random()*800;
   setTimeout(connect,wait);
