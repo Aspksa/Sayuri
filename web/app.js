@@ -26,13 +26,160 @@ async function refresh(){
 async function messages(){const box=$('#messages');box.replaceChildren();if(!active){box.textContent='Общий чат загружается…';return}for(const m of await api('/chats/'+active+'/messages')){const div=document.createElement('div');div.className='bubble '+m.role;const small=document.createElement('small');small.textContent=m.role==='user'?'Вы':'Наставник · Sayuri наблюдает';const text=document.createElement('div');text.textContent=m.text;div.append(small,text);if(m.role==='assistant'){for(const [symbol,score] of [['👍',1],['👎',-1]]){const b=document.createElement('button');b.textContent=symbol;b.onclick=async()=>{try{await api('/feedback','POST',{message_id:m.id,rating:score});b.disabled=true}catch(e){fail(e)}};div.append(b)}}box.append(div)}box.scrollTop=box.scrollHeight}
 async function send(e){e.preventDefault();if(busy)return;const text=$('#draft').value.trim();if(!text)return;busy=true;$('#send').disabled=true;$('#error').textContent='Наставник отвечает; Sayuri изучает диалог…';try{if(!active)await refresh();const payload={text};if(activeProjectMemoryId)payload.project_id=activeProjectMemoryId;await api('/chats/'+active+'/send','POST',payload);$('#draft').value='';await refresh();$('#error').textContent=''}catch(e){fail(e)}finally{busy=false;$('#send').disabled=false}}
 async function account(){
- loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();loadMemory3();loadMemoryProjectOptions();loadKnowledge31();
+ loadCloudSettings();loadPreferences();drawCandidates();loadDevelopment();loadMemory3();loadMemoryProjectOptions();loadKnowledge31();loadInstinct32();
  try{
   const [p,stats]=await Promise.all([api('/persona'),api('/learning/stats')]);
   $('#persona').textContent=p.name+' · v'+p.version+' · '+p.sections+' разделов · '+p.dialogues+' диалогов ('+p.messages+' сообщений) · '+p.phrases+' реплик / '+p.categories+' категорий · '+p.chapters+' глав легенды · '+p.rituals+' ритуалов · '+p.rules+' правил · '+p.scenarios+' проверок. Режимы: '+p.modes.join(', ');
   $('#stats').textContent='Чаты: '+stats.chats+' · Память: '+stats.memories+' · Отзывы: '+stats.feedback+' · Файлы: '+stats.documents;
  }catch(e){fail(e)}
 }
+
+const instinctActionLabels={confirm:'Подтверждение',verify:'Проверка',guide:'Приоритет'};
+const instinctSourceLabels={base:'Базовый',owner:'Владелец',project:'Проект'};
+
+function instinctTargetProject(){
+ return $('#instinctScopeMode')?.value==='project'?activeProjectMemoryId:null;
+}
+function updateInstinctProjectContext(){
+ const node=$('#instinctProjectContext');if(!node)return;
+ const project=activeProjectMemoryId;
+ node.textContent=project?'Активный проект: '+project:'Активный проект: не выбран';
+ node.classList.toggle('active',Boolean(project));
+ const mode=$('#instinctScopeMode');
+ if(mode?.value==='project'&&!project)node.textContent='Проектный уровень недоступен: сначала откройте проект.';
+}
+function instinctStrengthText(value){return '●'.repeat(value)+'○'.repeat(5-value)}
+async function saveInstinctSetting(item,card){
+ const project=$('#instinctScopeMode').value==='project'?activeProjectMemoryId:null;
+ if($('#instinctScopeMode').value==='project'&&!project){
+  $('#instinctTestResult').textContent='Сначала откройте рабочий или домашний проект.';
+  return;
+ }
+ const strength=Number(card.querySelector('[data-instinct-strength]').value);
+ const enabled=card.querySelector('[data-instinct-enabled]').checked;
+ try{
+  await api('/instincts/'+item.id,'PUT',{strength,enabled,project_id:project});
+  await loadInstinct32();
+ }catch(e){$('#instinctTestResult').textContent='Не удалось сохранить: '+e.message}
+}
+async function resetInstinctSetting(item){
+ const project=$('#instinctScopeMode').value==='project'?activeProjectMemoryId:null;
+ const params=new URLSearchParams();if(project)params.set('project_id',project);
+ try{
+  await api('/instincts/'+item.id+(params.toString()?'?'+params.toString():''),'DELETE');
+  await loadInstinct32();
+ }catch(e){$('#instinctTestResult').textContent='Не удалось сбросить: '+e.message}
+}
+function instinctCard(item){
+ const card=document.createElement('article');card.className='instinct32-card';
+ card.dataset.instinctId=item.id;card.dataset.source=item.source;card.dataset.enabled=String(item.enabled);
+ const top=document.createElement('div');top.className='instinct32-card-top';
+ const title=document.createElement('strong');title.textContent=item.name;
+ const badge=document.createElement('span');badge.textContent=item.immutable?'Базовый · неизменяемый':instinctSourceLabels[item.source]||item.source;
+ top.append(title,badge);
+ const desc=document.createElement('p');desc.textContent=item.description;
+ const strength=document.createElement('div');strength.className='instinct32-strength';
+ const strengthLabel=document.createElement('span');strengthLabel.textContent='Сила '+item.strength+'/5';
+ const dots=document.createElement('b');dots.textContent=instinctStrengthText(item.strength);
+ strength.append(strengthLabel,dots);
+ card.append(top,desc,strength);
+ if(!item.immutable){
+  const controls=document.createElement('div');controls.className='instinct32-controls';
+  const selectLabel=document.createElement('label');selectLabel.textContent='Сила';
+  const select=document.createElement('select');select.dataset.instinctStrength='';
+  for(let value=1;value<=5;value++){
+   const option=document.createElement('option');option.value=String(value);
+   option.textContent=value+' / 5';if(value===item.strength)option.selected=true;select.append(option);
+  }
+  selectLabel.append(select);
+  const enabledLabel=document.createElement('label');enabledLabel.className='instinct32-toggle';
+  const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=item.enabled;enabled.dataset.instinctEnabled='';
+  const enabledText=document.createElement('span');enabledText.textContent='Включён';
+  enabledLabel.append(enabled,enabledText);
+  const save=document.createElement('button');save.type='button';save.textContent='Сохранить';
+  save.onclick=()=>saveInstinctSetting(item,card);
+  const reset=document.createElement('button');reset.type='button';reset.textContent='Сбросить';reset.className='secondary';
+  reset.disabled=item.source==='base';
+  reset.onclick=()=>resetInstinctSetting(item);
+  controls.append(selectLabel,enabledLabel,save,reset);card.append(controls);
+ }
+ return card;
+}
+function instinctEventCard(event){
+ const card=document.createElement('article');card.className='instinct32-event';
+ card.dataset.level=event.level;
+ const top=document.createElement('div');top.className='instinct32-event-top';
+ const level=document.createElement('strong');
+ level.textContent=event.level==='confirm'?'Требует подтверждения':event.level==='verify'?'Нужна проверка':event.level==='guided'?'Приоритеты применены':'Обычный режим';
+ const time=document.createElement('span');time.textContent=new Date(event.created*1000).toLocaleString('ru-RU');
+ top.append(level,time);card.append(top);
+ const meta=document.createElement('small');meta.textContent=(event.project_id?'Проект '+event.project_id+' · ':'')+(event.operation||'операция');
+ card.append(meta);
+ if(event.triggers?.length){
+  const list=document.createElement('div');list.className='instinct32-event-triggers';
+  for(const trigger of event.triggers){
+   const chip=document.createElement('span');chip.textContent=trigger.name+' '+trigger.strength+'/5';list.append(chip);
+  }
+  card.append(list);
+ }
+ return card;
+}
+async function loadInstinct32(){
+ const cards=$('#instinctCards'),summaryBox=$('#instinctSummary'),eventsBox=$('#instinctEvents');
+ if(!cards||!summaryBox||!eventsBox)return;
+ updateInstinctProjectContext();
+ const project=instinctTargetProject();
+ if($('#instinctScopeMode').value==='project'&&!project){
+  cards.replaceChildren();cards.textContent='Откройте рабочий или домашний проект, чтобы настроить его инстинкты.';
+  summaryBox.replaceChildren();eventsBox.replaceChildren();
+  return;
+ }
+ const params=new URLSearchParams();if(project)params.set('project_id',project);
+ const suffix=params.toString()?'?'+params.toString():'';
+ try{
+  const [data,summary,events]=await Promise.all([
+   api('/instincts'+suffix),api('/instincts/summary'+suffix),api('/instincts/events?limit=12')
+  ]);
+  summaryBox.replaceChildren();
+  for(const pair of [
+   ['Всего',summary.total],['Базовые',summary.immutable],['Настраиваемые',summary.configurable],
+   ['Включены',summary.enabled],['Переопределения',summary.project_overrides+summary.owner_overrides]
+  ])summaryBox.append(metric(pair[0],pair[1]));
+  cards.replaceChildren();for(const item of data.items)cards.append(instinctCard(item));
+  eventsBox.replaceChildren();
+  if(!events.items.length)eventsBox.textContent='Срабатываний пока нет.';
+  for(const event of events.items)eventsBox.append(instinctEventCard(event));
+ }catch(e){
+  cards.textContent='Инстинкт 3.2 недоступен: '+e.message;
+ }
+}
+async function testInstinct32(){
+ const text=$('#instinctTestText').value.trim(),box=$('#instinctTestResult');if(!text){box.textContent='Введите фразу для проверки.';return}
+ box.textContent='Проверяю локальные приоритеты…';
+ try{
+  const payload={text,operation:'manual_test'};
+  if(activeProjectMemoryId)payload.project_id=activeProjectMemoryId;
+  const result=await api('/instincts/evaluate','POST',payload);
+  box.replaceChildren();
+  const head=document.createElement('strong');
+  head.textContent=result.level==='confirm'?'Нужно подтверждение владельца':result.level==='verify'?'Нужна проверка перед уверенным выводом':result.level==='guided'?'Применены внутренние приоритеты':'Обычный режим';
+  box.append(head);
+  for(const trigger of result.triggers){
+   const row=document.createElement('div');row.className='instinct32-result-row';
+   const name=document.createElement('span');name.textContent=trigger.name+' · '+trigger.strength+'/5';
+   const reason=document.createElement('small');reason.textContent=trigger.reason+' · '+(instinctActionLabels[trigger.action]||trigger.action);
+   row.append(name,reason);box.append(row);
+  }
+  await loadInstinct32();
+ }catch(e){box.textContent='Проверка не выполнена: '+e.message}
+}
+
+$('#instinctScopeMode').onchange=loadInstinct32;
+$('#instinctTestButton').onclick=testInstinct32;
+$('#instinctTestText').onkeydown=event=>{
+ if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();testInstinct32()}
+};
+
 const memoryScopeLabels={personal:'Личная',project:'Проектная',working:'Рабочая',temporary:'Временная'};
 const memoryTypeLabels={fact:'Факт',preference:'Предпочтение',decision:'Решение',rule:'Правило',correction:'Исправление',note:'Заметка'};
 
@@ -345,7 +492,8 @@ async function showProject(category,relative=''){
     }
     const data=await api('/projects/'+category+'/list?path='+encodeURIComponent(relative));
     activeProjectMemoryId=data.memory_project_id||actual.memory_project_id||null;
-    updateMemoryActiveProject();knowledgeContextLabel();
+    updateMemoryActiveProject();knowledgeContextLabel();updateInstinctProjectContext();
+    if($('#instinctScopeMode')?.value==='project')loadInstinct32();
     const memoryBar=document.createElement('div');memoryBar.className='project-memory-bar';
     const memoryText=document.createElement('span');memoryText.textContent='Memory 3.0 · '+(activeProjectMemoryId||'контекст не определён');
     const memoryButton=document.createElement('button');memoryButton.type='button';memoryButton.textContent='Память проекта';
@@ -1132,16 +1280,17 @@ async function loadBuildInfo(){
  try{
   const data=await api('/build/info');
   const projectVersion=data.project_version||data.ui_version;
-  const coreVersion=data.core_version||'3.1.0',memoryVersion=data.memory_version||'3.0.0',
-        knowledgeVersion=data.knowledge_version||'3.1.0';
+  const coreVersion=data.core_version||'3.2.0',memoryVersion=data.memory_version||'3.0.0',
+        knowledgeVersion=data.knowledge_version||'3.1.0',instinctVersion=data.instinct_version||'3.2.0';
   info.textContent='Проект '+projectVersion+' · Ядро '+coreVersion+' · Память '+memoryVersion+
-    ' · Знания '+knowledgeVersion+' · Интерфейс '+data.ui_version;
+    ' · Знания '+knowledgeVersion+' · Инстинкт '+instinctVersion+' · Интерфейс '+data.ui_version;
   folder.textContent=data.running_folder;
   $('#accountUiVersion').textContent=data.ui_version;
   $('#accountProjectVersion').textContent=projectVersion;
   $('#accountCoreVersion').textContent=coreVersion;
   $('#accountMemoryVersion').textContent=memoryVersion;
   $('#accountKnowledgeVersion').textContent=knowledgeVersion;
+  $('#accountInstinctVersion').textContent=instinctVersion;
   $('#runningVersionNote').textContent='Этот путь принадлежит серверу, который сейчас отвечает браузеру. Если вы скачали ZIP в другую папку, дизайн здесь не изменится.';
  }catch(e){
   info.textContent='Версия сервера не определена';
