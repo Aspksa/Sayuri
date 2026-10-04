@@ -398,3 +398,22 @@ def reject_candidate(candidate_id: str, authorization: str | None = Header(None)
 @app.get("/sw.js")
 def service_worker():
     return FileResponse(WEB / "sw.js", media_type="text/javascript")
+
+@app.get("/api/cloud/models")
+async def cloud_models(authorization: str | None = Header(None)):
+    """List provider models without exposing the server-side API key."""
+    auth(authorization)
+    key=os.getenv("CLOUD_RU_API_KEY","")
+    base=os.getenv("CLOUD_RU_BASE_URL","").rstrip("/")
+    if not key or not base: raise HTTPException(503,"Cloud.ru не настроен")
+    parsed=urlparse(base)
+    if parsed.scheme!="https" or not parsed.netloc:
+        raise HTTPException(500,"Требуется HTTPS API URL")
+    try:
+        async with httpx.AsyncClient(timeout=20,follow_redirects=False) as client:
+            response=await client.get(base+"/models",headers={"Authorization":"Bearer "+key})
+        response.raise_for_status()
+        raw=response.json().get("data",[])
+        return {"models":[r["id"] for r in raw if isinstance(r,dict) and isinstance(r.get("id"),str)]}
+    except (httpx.HTTPError,ValueError,TypeError) as exc:
+        raise HTTPException(502,"Не удалось получить список моделей Cloud.ru") from exc
