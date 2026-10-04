@@ -63,31 +63,28 @@ class _ChatState extends State<ChatScreen> {
   Future<void> loadChats() async {
     try {
       chats = await api('/chats');
-      if(chats.isNotEmpty) {
-        if(!chats.any((c)=>c['id']==active)) active=chats.first['id'];
-        await loadMessages();
-      } else { active='';messages=[]; }
-      status = '';
-    } catch(e) { status = '$e'; }
-    if(mounted) setState(() {});
+      final mentors = chats.where((c)=>c['kind']=='teacher').toList()
+        ..sort((a,b)=>(a['created'] as int).compareTo(b['created'] as int));
+      if(mentors.isEmpty){
+        final c=await api('/chats',method:'POST',data:{'title':'Общий чат','kind':'teacher'});
+        active=c['id'];
+      }else{
+        active=mentors.first['id'];
+      }
+      await loadMessages();
+      status='';
+    }catch(e){status='$e';}
+    if(mounted)setState(() {});
   }
   Future<void> loadMessages() async {
     if (active.isNotEmpty) messages=await api('/chats/$active/messages');
     if(mounted) setState(() {});
   }
-  Future<void> createChat({String kind='sayuri'}) async {
-    try {
-      final result=await api('/chats',method:'POST',data:{'title':kind=='teacher'?'Диалог с наставником':'Новый чат','kind':kind});
-      active=result['id'];
-      messages=[];
-      await loadChats();
-    }catch(e){setState(()=>status='$e');}
-  }
   Future<void> send() async {
     if(waiting||draft.text.trim().isEmpty)return;
     setState(()=>waiting=true);
     try {
-      if(active.isEmpty)await createChat();
+      if(active.isEmpty)await loadChats();
       if(active.isEmpty)return;
       await api('/chats/$active/send',method:'POST',data:{'text':draft.text.trim()});
       draft.clear();
@@ -96,17 +93,10 @@ class _ChatState extends State<ChatScreen> {
     finally{if(mounted)setState(()=>waiting=false);}
   }
   @override Widget build(BuildContext context) => Scaffold(
-    appBar:AppBar(title:const Text('✿ Sayuri'),actions: [
-      if(token.isNotEmpty)IconButton(onPressed:()=>createChat(),icon:const Icon(Icons.add_comment_outlined))
-    ]),
+    appBar:AppBar(title:const Text('✿ Sayuri · общий чат')),
     drawer:token.isEmpty?null:Drawer(child:SafeArea(child:ListView(children:[
-      const ListTile(title:Text('История чатов')),
-      ListTile(title:const Text('№01 — Новый чат Саюри'),onTap:() async {await createChat(kind:'sayuri');if(context.mounted)Navigator.pop(context);}),
-      ListTile(title:const Text('№02 — Чат DeepSeek-наставника'),onTap:() async {await createChat(kind:'teacher');if(context.mounted)Navigator.pop(context);}),
-      for(final c in chats) ListTile(title:Text((c['kind']=='teacher'?'№02 · ':'№01 · ')+c['title']),onTap:() async {
-        active=c['id']; await loadMessages();
-        if(context.mounted)Navigator.pop(context);
-      }),
+      const ListTile(title:Text('Sayuri')),
+      const ListTile(subtitle:Text('Наставник отвечает · Sayuri учится')),
       ListTile(title:const Text('Выйти'),onTap:() async {
         await storage.delete(key:'token');token='';messages=[];setState(() {});
         if(context.mounted)Navigator.pop(context);
@@ -133,7 +123,7 @@ class _ChatState extends State<ChatScreen> {
                 child:Text(m['text'])));
           })),
           Padding(padding:const EdgeInsets.all(12),child:Row(children:[
-            Expanded(child:TextField(controller:draft,minLines:1,maxLines:4,decoration:const InputDecoration(hintText:'Сообщение Саюри…'))),
+            Expanded(child:TextField(controller:draft,minLines:1,maxLines:4,decoration:const InputDecoration(hintText:'Написать наставнику…'))),
             IconButton(onPressed:waiting?null:send,icon:waiting?const CircularProgressIndicator():const Icon(Icons.send))
           ]))
         ])
